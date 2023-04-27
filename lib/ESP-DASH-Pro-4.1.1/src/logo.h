@@ -13,9 +13,9 @@ extern const uint8_t DASH_MINI_LOGO[215];
 
 #define DASH_LARGE_LOGO_MIME        "image/png"
 #define DASH_LARGE_LOGO_GZIPPED     1
-#define DASH_LARGE_LOGO_WIDTH       162
-#define DASH_LARGE_LOGO_HEIGHT      28
+#define DASH_LARGE_LOGO_WIDTH       120
+#define DASH_LARGE_LOGO_HEIGHT      120
 
-extern const uint8_t DASH_LARGE_LOGO[7655];
+extern const uint8_t DASH_LARGE_LOGO[5025];
 
 #endif
