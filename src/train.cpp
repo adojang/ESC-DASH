@@ -22,8 +22,21 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "train"
-#define MACAD 0x01
+#define NAME "humanchain"
+#define MACAD 0x01 // Refer to Table Below
+
+/* Data Naming Convention for Mac Addresses
+*  0x00 - masterserver
+ * 0x01 - humanchain
+ * 0x02 - bikelight
+ * 0x03 - clockmotor
+ * 0x04 - beetle
+ * 0x05 - chalicedoor
+ * 0x06 - ringreader
+ * 0x07 - tangrumtomb
+ * 0x08 - thumbreaderdoor
+*/
+
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
@@ -44,8 +57,9 @@
 #include <AsyncElegantOTA.h>
 
 /* SET MAC ADDRESS */
-uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
+uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
+
 /* ESP Async Timer */
 AsyncTimer asynctimer;
 
@@ -59,24 +73,10 @@ int trigger = 0;
 } dataPacket;
 
 dataPacket sData; // data to send
-dataPacket rData; // data to recieve and read
+dataPacket rData; // data to recieve
 
 /* Setup */
 AsyncWebServer server(80);
-
-String success;
-typedef struct struct_message {
-    float temp;
-    float hum;
-    float pres;
-} struct_message;
-
-// Create a struct_message called BME280Readings to hold sensor readings
-struct_message BME280Readings;
-
-// Create a struct_message to hold incoming sensor readings
-struct_message incomingReadings;
-
 esp_now_peer_info_t peerInfo;
 
 
@@ -88,12 +88,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
+  memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
 
+  //Incoming Data is copied to rData. Do something with it here or in the main loop.
   //Incoming Data Goes Here
 
-  
+
 }
 
 void startespnow(){
@@ -175,9 +176,7 @@ void setup() {
   startespnow(); // Startup for ESP-NOW
 
   //Begin Sending Data to Remote ESP's every 250ms
-  asynctimer.setInterval([]() {
-    esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-  },  250);
+  // asynctimer.setInterval([]() { esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  250);
 
 }
 
