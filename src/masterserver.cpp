@@ -23,11 +23,13 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "masterserver"
+#define NAME "train"
+#define MACAD 0x00
 
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
+
 /* ESP-DASH */
 #include <ESPDashPro.h>
 #include <ArduinoJson.h>
@@ -37,6 +39,7 @@
 
 /* Wifi and mDNS */
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <ESPmDNS.h>
 
 /* ESP-NOW */
@@ -46,6 +49,8 @@
 #include <AsyncElegantOTA.h>
 #include <ESPmDNS.h>
 
+/* SET MAC ADDRESS */
+uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 /* ESP Async Timer */
 AsyncTimer asynctimer;
@@ -126,7 +131,7 @@ Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
 void setup() {
   Serial.begin(115200);
-
+  esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
  /* Setup Tabs */
   // dashboard.setAuthentication("admin", "1234"); // Authentication
   dashboard.setTitle("Escape Room Master Control");

@@ -1,11 +1,10 @@
 /*
   --------------------------------------------------------------------------
-  Escape Room Master Server
+  Escape Room Template
   Adriaan van Wijk
   22 May 2023
 
-  This code is for a server which listens for messages from the remote ESP's
-  and enables override functions on the remote ESP's to override puzzles.
+  Give a short explaination of what this code does and for what puzzle it is.
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -23,20 +22,19 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "masterserver"
-
+#define NAME "train"
+#define MACAD 0x01
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
+
 /* ESP-DASH */
-#include <ESPDashPro.h>
 #include <ArduinoJson.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
 #include <AsyncTimer.h>
 
 /* Wifi and mDNS */
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <ESPmDNS.h>
 
 /* ESP-NOW */
@@ -44,9 +42,10 @@
 
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
-#include <ESPmDNS.h>
 
-
+/* SET MAC ADDRESS */
+uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 /* ESP Async Timer */
 AsyncTimer asynctimer;
 
@@ -59,99 +58,73 @@ typedef struct dataPacket {
 int trigger = 0;
 } dataPacket;
 
-
-
+dataPacket sData; // data to send
+dataPacket rData; // data to recieve and read
 
 /* Setup */
 AsyncWebServer server(80);
-ESPDash dashboard(&server,false);
 
-// ESPDash dashboard.setTitle("Escape Room Control Panel");
-/* * * * * *  ESP-DASH Cards * * * * * * */
+String success;
+typedef struct struct_message {
+    float temp;
+    float hum;
+    float pres;
+} struct_message;
 
-#define CARDLEN 8
+// Create a struct_message called BME280Readings to hold sensor readings
+struct_message BME280Readings;
 
-Card cardArray[CARDLEN] = {
-/* Attic */
-Card(&dashboard, BUTTON_CARD, "Open Human Chain Door"), // momentary
-Card(&dashboard, BUTTON_CARD, "Bicycle Lightbulb Override"), // not momentary
-Card(&dashboard, BUTTON_CARD, "Clock Motor Override"), //momentary
+// Create a struct_message to hold incoming sensor readings
+struct_message incomingReadings;
 
-/* Ancient Tomb */
-Card(&dashboard, BUTTON_CARD, "Open Beetle Puzle"), //momentary
-Card(&dashboard, BUTTON_CARD, "Open Chalice Door"), //momentary
-Card(&dashboard, BUTTON_CARD, "Override Ring Reader"), //momentary
-Card(&dashboard, BUTTON_CARD, "Tangrum Puzzle Override"), //momentary
-
-/* All Aboard (Train) */
-Card(&dashboard, BUTTON_CARD, "Open Thumb Reader Door"), //momentary
-};
-
-dataPacket sData[CARDLEN];
-dataPacket sDataprev[CARDLEN];
-
-/* Data Order for cardArray and dataPacket
- * 0 - humanchain
- * 1 - bikelight
- * 2 - clockmotor
- * 3 - beetle
- * 4 - chalicedoor
- * 5 - ringreader
- * 6 - tangrumtomb
- * 7 - thumbreaderdoor
-*/
-
-/* Tabs */
-Tab attic(&dashboard, "Attic");
-Tab tomb(&dashboard, "Ancient Tomb");
-Tab train(&dashboard, "All Aboard");
-
-/* Timer Cards */
-
-/* Overview Timer Cards */
- Card overview_status(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-// Card overview_(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-// Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-// Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-
-Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card overview_tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card overview_train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-
-/* Contained inside tabs*/
-Card attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+esp_now_peer_info_t peerInfo;
 
 
-void setup() {
-  Serial.begin(115200);
+// Callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
 
- /* Setup Tabs */
-  // dashboard.setAuthentication("admin", "1234"); // Authentication
-  dashboard.setTitle("Escape Room Master Control");
+}
 
-  /* Attic */
-  cardArray[0].setTab(&attic);
-  cardArray[1].setTab(&attic);
-  cardArray[2].setTab(&attic);
-  attic_time.setTab(&attic);
-  attic_time.setSize(6,6,6,6,6,6);
+// Callback when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
+  Serial.println("Override Data Recieved...");
 
-  /* Tomb */
-  cardArray[3].setTab(&tomb);
-  cardArray[4].setTab(&tomb);
-  cardArray[5].setTab(&tomb);
-  cardArray[6].setTab(&tomb);
-  tomb_time.setTab(&tomb);
-  tomb_time.setSize(6,6,6,6,6,6);
-  /* Train */
-  cardArray[7].setTab(&train);
-  train_time.setTab(&train);
-  train_time.setSize(6,6,6,6,6,6);
+  //Incoming Data Goes Here
 
-/* Connect WiFi */
+  
+}
+
+void startespnow(){
+    // Init ESP-NOW
+    if (esp_now_init() != ESP_OK) {
+      Serial.println("Error initializing ESP-NOW");
+      return;
+    }
+
+    // Once ESPNow is successfully Init, we will register for Send CB to
+    // get the status of Trasnmitted packet
+    esp_now_register_send_cb(OnDataSent);
+    
+    // Register peer
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 0;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+      Serial.println("Failed to add peer");
+      return;
+    }
+    // Register for a callback function that will be called when data is received
+    esp_now_register_recv_cb(OnDataRecv);
+}
+
+void startup(){
+  /* Connect WiFi */
   WiFi.mode(WIFI_STA);
+  esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
   
   WiFi.setAutoReconnect(true);
   WiFi.begin(ssid, password);
@@ -163,98 +136,56 @@ void setup() {
       Serial.printf("WiFi Failed!\n");
       return;
   }
+
   //Local Only Mode
 
   // WiFi.mode(WIFI_AP);
   // WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
   // WiFi.softAP(ssid, NULL);
-  Serial.println(WiFi.softAPIP());
+  // Serial.println(WiFi.softAPIP());
+  // Serial.print("IP Address: ");
+  // Serial.println(WiFi.localIP());
 
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
-
-  if (!MDNS.begin("escape")) {
+  /* MDNS */
+  if (!MDNS.begin(NAME)) {
         Serial.println("Error setting up MDNS responder!");
         while(1) {
             delay(1000);
         }
     }
   Serial.println("mDNS responder started");
-
-  /* Initialize Callback Functions */
   
-    for (int i = 0; i < CARDLEN; i++){
-    cardArray[i].attachCallback([i](int value){
-    sData[i].trigger = 1;
-    cardArray[i].update(1);
-    Serial.printf("Card triggered: %d\n", i);
-    dashboard.sendUpdates();
-    });
-  }
-
-  /* Elegant OTA */
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
-
-  String httptext = "Webhost for Esc Rooms 22 May 2023 v0.1\n";
-  httptext += "\nGo to ";
-  httptext += NAME;
-  httptext +=  "ESP32.local/update to update firmware.\n";
-  httptext += "(C) Adriaan van Wijk 2023\n";
-  httptext += "Proxonics (Pty) Ltd.\n";
-  httptext += "All Rights Reserved";
-  server.on("/info", HTTP_GET, [&](AsyncWebServerRequest *request){
-    request->send(200, "text/plain", httptext);
-  });
-
 
   server.begin();
 
-  /* Timer Preloop */
-  //   for (int i; i < CARDLEN; i++){
-  //   sDataprev[i].trigger = sData[i].trigger;
-  // }
-// END SETUP
+
+  //MDNS
+  MDNS.addService("http", "tcp", 80);
+
+
+
+
 }
 
-void setButtonFalse(int i){
 
-    sData[i].trigger = 0;
-    cardArray[i].update(0);
-    dashboard.sendUpdates();
-    Serial.printf("Card %d, disabled\n", i);
+void setup() {
+  Serial.begin(115200);
+  startup(); // Startup for Wifi, mDNS, and OTA
+  startespnow(); // Startup for ESP-NOW
+
+  //Begin Sending Data to Remote ESP's every 250ms
+  asynctimer.setInterval([]() {
+    esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+  },  250);
+
 }
+
 
 void loop() {
-//Detect and Handle Status Reset when a button is pressed.
-  for (int i=0; i < CARDLEN; i++)
-  {
-    if (sData[i].trigger != sDataprev[i].trigger)
-    {
-      Serial.println("Timer Triggered 4s");
-
-
-    asynctimer.setTimeout([i]() {
-      setButtonFalse(i);
-    }, 2000);
-    // "Hello world!" will be printed to the Serial once after 2 seconds
-
-
-      // asynctimer.setTimeout(setButtonFalse(i), 3000);
-    }
-  }
-
-
-
-  //Reset Check if Card Triggered
-  for (int i; i < CARDLEN; i++){
-    sDataprev[i] = sData[i];
-  }
-
-
-
+  //Insert Code Here
+  //You need to edit OnDataRecv to handle incoming overrides.
 
 
   asynctimer.handle();
-  // dashboard.sendUpdates();
 }
