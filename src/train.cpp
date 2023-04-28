@@ -1,15 +1,11 @@
 /*
-  -----------------------
+  --------------------------------------------------------------------------
   Escape Room Master Server
   Adriaan van Wijk
   22 May 2023
-  This Code is licenced under the 
 
-  This code is for a server which listens for messages from the clients and sends control override messages 
-  to clients in an escape room setup
-
-
-
+  This code is for a server which listens for messages from the remote ESP's
+  and enables override functions on the remote ESP's to override puzzles.
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -24,14 +20,14 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
-
+  --------------------------------------------------------------------------
 */
 
-
+#define NAME "masterserver"
 
 /* Kernal*/
 #include <Arduino.h>
-
+#include <config.h>
 /* ESP-DASH */
 #include <ESPDashPro.h>
 #include <ArduinoJson.h>
@@ -46,31 +42,23 @@
 /* ESP-NOW */
 #include <esp_now.h>
 
+/* Elegant OTA */
+#include <AsyncElegantOTA.h>
+#include <ESPmDNS.h>
+
+
 /* ESP Async Timer */
 AsyncTimer asynctimer;
 
 /* WiFi Credentials */
-const char* ssid = "vanwag"; // SSID
-const char* password = "aeaeaeaeae"; // Password
+const char* ssid = WIFI_SSID; // SSID
+const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
-
 typedef struct dataPacket {
 int trigger = 0;
 } dataPacket;
 
-
-/*
- * 0 - humanchain
- * 1 - bikelight
- * 2 - clockmotor
- * 3 - beetle
- * 4 - chalicedoor
- * 5 - ringreader
- * 6 - tangrumtomb
- * 7 - thumbreaderdoor
-
-*/
 
 
 
@@ -99,7 +87,6 @@ Card(&dashboard, BUTTON_CARD, "Tangrum Puzzle Override"), //momentary
 Card(&dashboard, BUTTON_CARD, "Open Thumb Reader Door"), //momentary
 };
 
-
 dataPacket sData[CARDLEN];
 dataPacket sDataprev[CARDLEN];
 
@@ -120,6 +107,18 @@ Tab tomb(&dashboard, "Ancient Tomb");
 Tab train(&dashboard, "All Aboard");
 
 /* Timer Cards */
+
+/* Overview Timer Cards */
+ Card overview_status(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+// Card overview_(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+// Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+// Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+
+Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+Card overview_tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+Card overview_train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+
+/* Contained inside tabs*/
 Card attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
@@ -194,31 +193,27 @@ void setup() {
     });
   }
 
-    //     cardArray[0].attachCallback([&](int value){
-    // sData[0].trigger = value;
-    // cardArray[0].update(value);
-    // Serial.printf("Card triggered: %d\n", 0);
-    // dashboard.sendUpdates();
-    // });
+  /* Elegant OTA */
+  AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
-    //   cardArray[7].attachCallback([&](int value){
-    // sData[7].trigger = value;
-    // cardArray[7].update(value);
-    // Serial.printf("Card triggered: %d\n", 7);
-    // dashboard.sendUpdates();
-    // });
+  String httptext = "Webhost for Esc Rooms 22 May 2023 v0.1\n";
+  httptext += "\nGo to ";
+  httptext += NAME;
+  httptext +=  "ESP32.local/update to update firmware.\n";
+  httptext += "(C) Adriaan van Wijk 2023\n";
+  httptext += "Proxonics (Pty) Ltd.\n";
+  httptext += "All Rights Reserved";
+  server.on("/info", HTTP_GET, [&](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", httptext);
+  });
 
 
   server.begin();
 
   /* Timer Preloop */
-    for (int i; i < CARDLEN; i++){
-    sDataprev[i].trigger = sData[i].trigger;
-  }
-
-tomb_time.update(42);
-dashboard.sendUpdates();
-
+  //   for (int i; i < CARDLEN; i++){
+  //   sDataprev[i].trigger = sData[i].trigger;
+  // }
 // END SETUP
 }
 
@@ -231,10 +226,7 @@ void setButtonFalse(int i){
 }
 
 void loop() {
-
-
-
-  //Detect and Handle Status Reset when a button is pressed.
+//Detect and Handle Status Reset when a button is pressed.
   for (int i=0; i < CARDLEN; i++)
   {
     if (sData[i].trigger != sDataprev[i].trigger)
