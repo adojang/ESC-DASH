@@ -14,7 +14,7 @@ Once you have these components, you can clone the repository and upload the code
 
 ## Usage
 
-Once you have uploaded the code to your board and connected, you should see the dashboard on 'escape.local' in your local browser.
+Once you have uploaded the code to your board and connected, you should see the dashboard on `escape.local` in your local browser.
 
 
 ## License
