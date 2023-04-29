@@ -135,7 +135,7 @@ Tab train(&dashboard, "All Aboard");
 /* Timer Cards */
 
 /* Overview Timer Cards */
- Card overview_status(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+Card overview_status(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 // Card overview_(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 // Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 // Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
@@ -194,6 +194,7 @@ void setup() {
   // WiFi.mode(WIFI_AP);
   // WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
   // WiFi.softAP(ssid, NULL);
+
   Serial.println(WiFi.softAPIP());
 
   Serial.print("IP Address: ");
@@ -222,28 +223,10 @@ void setup() {
   /* Elegant OTA */
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
-  String httptext = "Webhost for Esc Rooms 22 May 2023 v0.1\n";
-  httptext += "\nGo to ";
-  httptext += NAME;
-  httptext +=  "ESP32.local/update to update firmware.\n";
-  httptext += "(C) Adriaan van Wijk 2023\n";
-  httptext += "Proxonics (Pty) Ltd.\n";
-  httptext += "All Rights Reserved";
-  server.on("/info", HTTP_GET, [&](AsyncWebServerRequest *request){
-    request->send(200, "text/plain", httptext);
-  });
-
-
   server.begin();
-
-  // MDNS
   MDNS.addService("http", "tcp", 80);
 
-  /* Timer Preloop */
-  //   for (int i; i < CARDLEN; i++){
-  //   sDataprev[i].trigger = sData[i].trigger;
-  // }
-// END SETUP
+
 }
 
 void setButtonFalse(int i){
@@ -266,10 +249,6 @@ void loop() {
     asynctimer.setTimeout([i]() {
       setButtonFalse(i);
     }, 2000);
-    // "Hello world!" will be printed to the Serial once after 2 seconds
-
-
-      // asynctimer.setTimeout(setButtonFalse(i), 3000);
     }
   }
 

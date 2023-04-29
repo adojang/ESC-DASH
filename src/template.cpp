@@ -22,7 +22,7 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "humanchain"
+#define NAME "template"
 #define MACAD 0x01 // Refer to Table Below
 
 /* Data Naming Convention for Mac Addresses
@@ -138,15 +138,6 @@ void startup(){
       return;
   }
 
-  //Local Only Mode
-
-  // WiFi.mode(WIFI_AP);
-  // WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
-  // WiFi.softAP(ssid, NULL);
-  // Serial.println(WiFi.softAPIP());
-  // Serial.print("IP Address: ");
-  // Serial.println(WiFi.localIP());
-
   /* MDNS */
   if (!MDNS.begin(NAME)) {
         Serial.println("Error setting up MDNS responder!");
@@ -159,13 +150,7 @@ void startup(){
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
   server.begin();
-
-
-  //MDNS
   MDNS.addService("http", "tcp", 80);
-
-
-
 
 }
 
