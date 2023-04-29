@@ -1,4 +1,4 @@
-# ESP-DASH: Dashboard for Escape Room Company
+# ESP-DASH: Dashboard for Esc Rooms in Tygervallei Mall
 
 Welcome to the ESP-DASH repository! This codebase is a dashboard designed for a Esc Rooms that allows them to override any electronic puzzle in their rooms and track important metrics.
 
