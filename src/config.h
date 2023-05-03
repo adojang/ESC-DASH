@@ -1,5 +1,5 @@
 
-#define WIFI_SSID "vanwag"
-#define WIFI_PASS "aeaeaeaeae"
+#define WIFI_SSID "Mourning to Dancing"
+#define WIFI_PASS "throughchristalone"
 
 
