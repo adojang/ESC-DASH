@@ -12,3 +12,22 @@
  * 0xA2 - Keypad 2
  * 0xB0 - Relay Control
 */
+
+
+typedef struct dataPacket {
+int trigger = 0;
+} dataPacket;
+
+By default:
+0 = False, not triggered.
+1 = True, triggered.
+
+By default, we want everything to be a 'oneshot' as far as possible.
+
+
+In the case of doors:
+0 = Do Nothing.
+1 = Door 1 Train Entrance
+2 = Door 2 Tomb Door
+3 = Door 3 Tomb Casket
+4 = Door 4 Attic HumanChain door

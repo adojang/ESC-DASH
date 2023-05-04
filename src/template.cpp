@@ -23,7 +23,9 @@
 */
 
 #define NAME "template"
-#define MACAD 0x01 // Refer to Table Below
+#define MACAD 0xB0 // Refer to Table Below
+
+// In this case it iss sest to B0 because I created the template from the relaycontrol code
 
 /* Data Naming Convention for Mac Addresses
 *  0x00 - masterserver
@@ -35,7 +37,11 @@
  * 0x06 - ringreader
  * 0x07 - tangrumtomb
  * 0x08 - thumbreaderdoor
+ * 0xA1 - Keypad 1
+ * 0xA2 - Keypad 2
+ * 0xB0 - Relay Control
 */
+
 
 /* Kernal*/
 #include <Arduino.h>
@@ -56,9 +62,10 @@
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
 
-/* SET MAC ADDRESS */
+// REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
+
 
 /* ESP Async Timer */
 AsyncTimer asynctimer;
@@ -80,57 +87,44 @@ AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 
 
-// Callback when data is sent
+bool turnlighton = false;
+
+
+/* ESP-NOW Callback Functions*/
+
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
-
 }
 
-// Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
 
-  //Incoming Data is copied to rData. Do something with it here or in the main loop.
-  //Incoming Data Goes Here
+  if (rData.trigger == 1) {
+  //You should never use delay in this function. It might cause the ESP-NOW to crash.
+    turnlighton = true;
+  }
+  else
+  {
+    turnlighton = false;
+  }
+  
+  // Add your code here to do something with the data recieved.
+  //It's probably best to use a flag instead of calling it directly here. Not Sure
 
 
 }
+ 
 
-void startespnow(){
-    // Init ESP-NOW
-    if (esp_now_init() != ESP_OK) {
-      Serial.println("Error initializing ESP-NOW");
-      return;
-    }
+void startwifi(){
 
-    // Once ESPNow is successfully Init, we will register for Send CB to
-    // get the status of Trasnmitted packet
-    esp_now_register_send_cb(OnDataSent);
-    
-    // Register peer
-    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = 0;  
-    peerInfo.encrypt = false;
-    
-    // Add peer        
-    if (esp_now_add_peer(&peerInfo) != ESP_OK){
-      Serial.println("Failed to add peer");
-      return;
-    }
-    // Register for a callback function that will be called when data is received
-    esp_now_register_recv_cb(OnDataRecv);
-}
-
-void startup(){
-  /* Connect WiFi */
+  // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-  
-  WiFi.setAutoReconnect(true);
+
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(200);
     Serial.print(".");
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -138,7 +132,7 @@ void startup(){
       return;
   }
 
-  /* MDNS */
+   /* MDNS */
   if (!MDNS.begin(NAME)) {
         Serial.println("Error setting up MDNS responder!");
         while(1) {
@@ -146,6 +140,7 @@ void startup(){
         }
     }
   Serial.println("mDNS responder started");
+  Serial.printf("*** PROGRAM START ***\n\n");
   
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
@@ -154,22 +149,62 @@ void startup(){
 
 }
 
+void startespnow(){
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+
+  //Register Callback Functions
+  esp_now_register_send_cb(OnDataSent);
+  esp_now_register_recv_cb(OnDataRecv);
+
+  // Register peer
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;  
+  peerInfo.encrypt = false;
+  
+  // Add peer        
+  if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+}
 
 void setup() {
   Serial.begin(115200);
-  startup(); // Startup for Wifi, mDNS, and OTA
-  startespnow(); // Startup for ESP-NOW
+  startwifi();
+  startespnow();
 
-  //Begin Sending Data to Remote ESP's every 250ms
-  // asynctimer.setInterval([]() { esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  250);
+  //Make any Edits you need to add below this line ------------------------------
+
+  pinMode(2, OUTPUT);
+  digitalWrite(2,LOW);
+
+
+
+
+
 
 }
 
 
 void loop() {
-  //Insert Code Here
-  //You need to edit OnDataRecv to handle incoming overrides.
+
+  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+
+  if (turnlighton) {
+    digitalWrite(2,HIGH);
+  }
+  else {
+    digitalWrite(2,LOW);
+  }
 
 
+
+  //Required for the asynctimer to work.
   asynctimer.handle();
 }

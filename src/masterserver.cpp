@@ -158,11 +158,8 @@ Tab train(&dashboard, "All Aboard");
 
 /* Overview Timer Cards */
 Card overview_status(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-// Card overview_(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-// Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-// Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-
 Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+Card testnetwork(&dashboard, BUTTON_CARD, "TEST CONNECTION"); //momentary
 Card overview_tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card overview_train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
@@ -204,7 +201,7 @@ void startespnow(){
     }
 
     esp_now_register_send_cb(OnDataSent);
-  
+    esp_now_register_recv_cb(OnDataRecv);
     // for (int i = 0; i < ADDRESSSLENGTH; i++) {
     //   memcpy(peerInfo.peer_addr, sensorAddress[i], 6); 
     //   peerInfo.channel = 0;  
@@ -229,13 +226,13 @@ void startespnow(){
     
 
     // Register for a callback function that will be called when data is received
-    // esp_now_register_recv_cb(OnDataRecv);
+
 }
 
 
 
 void testingnow(){
-
+  sData->trigger=4;
   esp_err_t result = esp_now_send(testaddress, (uint8_t *) &sData, sizeof(sData));
    
   if (result == ESP_OK) {
@@ -312,6 +309,21 @@ void setup() {
 
   /* Initialize Callback Functions */
 
+  /* TEST CALLBACK FUNCTION*/
+
+   testnetwork.attachCallback([](int value){
+    testnetwork.update(value);
+    Serial.printf("TEST BUTTON TRIGGERED: %d\n");
+    sData->trigger=value;
+
+    esp_err_t result = esp_now_send(testaddress, (uint8_t *) &sData, sizeof(sData));
+   
+    if (result == ESP_OK) { Serial.println("Sent with success");}
+    else {Serial.println("Error sending the data");}
+    
+    dashboard.sendUpdates();
+    });
+
   
     for (int i = 0; i < CARDLEN; i++){
 
@@ -339,6 +351,8 @@ void setup() {
     });
 
     }
+
+
 
 
 
