@@ -10,4 +10,5 @@
  * 0x08 - thumbreaderdoor
  * 0xA1 - Keypad 1
  * 0xA2 - Keypad 2
+ * 0xB0 - Relay Control
 */

@@ -48,17 +48,38 @@
 #include <AsyncElegantOTA.h>
 #include <ESPmDNS.h>
 
+
 /* SET MAC ADDRESS */
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
+uint8_t testaddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0}; // Address of Master Server
+// uint8_t MAC01[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
+// uint8_t MAC02[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
+// uint8_t MAC03[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
+// uint8_t MAC04[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x04};
+// uint8_t MAC05[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x05};
+// uint8_t MAC06[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x06};
+// uint8_t MAC07[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x07};
+// uint8_t MAC08[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x08};
+// uint8_t MAC09[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1};
+// uint8_t MAC10[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2};
+// uint8_t MAC11[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0};
 
-uint8_t MAC01[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
-uint8_t MAC02[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
-uint8_t MAC03[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
-uint8_t MAC04[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x04};
-uint8_t MAC05[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x05};
-uint8_t MAC06[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x06};
-uint8_t MAC07[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x07};
-uint8_t MAC08[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x08};
+#define ADDRESSSLENGTH 11
+
+uint8_t sensorAddress[][6] = {
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x04},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x05},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x06},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x07},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x08},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2},
+    {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0}
+};
+
 
 /* Data Naming Convention for Mac Addresses
 *  0x00 - masterserver
@@ -70,6 +91,9 @@ uint8_t MAC08[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x08};
  * 0x06 - ringreader
  * 0x07 - tangrumtomb
  * 0x08 - thumbreaderdoor
+ * 0xA1 - Keypad 1
+ * 0xA2 - Keypad 2
+ * 0xB0 - Relay Control
 */
 
 
@@ -80,17 +104,10 @@ AsyncTimer asynctimer;
 const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
-/* ESP-NOW Structures */
-typedef struct dataPacket {
-int trigger = 0;
-} dataPacket;
-
-
-
-
 /* Setup */
 AsyncWebServer server(80);
 ESPDash dashboard(&server,false);
+esp_now_peer_info_t peerInfo;
 
 // ESPDash dashboard.setTitle("Escape Room Control Panel");
 /* * * * * *  ESP-DASH Cards * * * * * * */
@@ -112,6 +129,11 @@ Card(&dashboard, BUTTON_CARD, "Tangrum Puzzle Override"), //momentary
 /* All Aboard (Train) */
 Card(&dashboard, BUTTON_CARD, "Open Thumb Reader Door"), //momentary
 };
+
+/* ESP-NOW Structures */
+typedef struct dataPacket {
+int trigger = 0;
+} dataPacket;
 
 dataPacket sData[CARDLEN];
 dataPacket sDataprev[CARDLEN];
@@ -149,10 +171,86 @@ Card attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
+/* ESP-NOW */
+
+/* ESP-NOW Structures */
+
+
+// dataPacket sData; // data to send
+dataPacket rData; // data to recieve
+
+// Callback when data is sent
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+
+}
+
+// Callback when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  // memcpy(&rData, incomingData, sizeof(rData));
+  Serial.println("Override Data Recieved...");
+
+  //Incoming Data is copied to rData. Do something with it here or in the main loop.
+  //Incoming Data Goes Here
+
+
+}
+
+void startespnow(){
+    // Init ESP-NOW
+    if (esp_now_init() != ESP_OK) {
+      Serial.println("Error initializing ESP-NOW");
+      return;
+    }
+
+    esp_now_register_send_cb(OnDataSent);
+  
+    // for (int i = 0; i < ADDRESSSLENGTH; i++) {
+    //   memcpy(peerInfo.peer_addr, sensorAddress[i], 6); 
+    //   peerInfo.channel = 0;  
+    //   peerInfo.encrypt = false;    
+    //   if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    //     Serial.println("Failed to add peer");
+    //     return;
+    //   }
+
+      memcpy(peerInfo.peer_addr, testaddress, 6); 
+      peerInfo.channel = 0;  
+      peerInfo.encrypt = false;    
+      if (esp_now_add_peer(&peerInfo) != ESP_OK){
+        Serial.println("Failed to add peer");
+        return;
+    //   }
+
+
+    }
+
+
+    
+
+    // Register for a callback function that will be called when data is received
+    // esp_now_register_recv_cb(OnDataRecv);
+}
+
+
+
+void testingnow(){
+
+  esp_err_t result = esp_now_send(testaddress, (uint8_t *) &sData, sizeof(sData));
+   
+  if (result == ESP_OK) {
+    Serial.println("Sent with success");
+  }
+  else {
+    Serial.println("Error sending the data");
+  }
+
+}
 
 void setup() {
   Serial.begin(115200);
-  esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
+  
+
  /* Setup Tabs */
   // dashboard.setAuthentication("admin", "1234"); // Authentication
   dashboard.setTitle("Escape Room Master Control");
@@ -178,7 +276,10 @@ void setup() {
 
 /* Connect WiFi */
   WiFi.mode(WIFI_STA);
-  
+  esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
+
+
+
   WiFi.setAutoReconnect(true);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -210,14 +311,38 @@ void setup() {
   Serial.println("mDNS responder started");
 
   /* Initialize Callback Functions */
+
   
     for (int i = 0; i < CARDLEN; i++){
+
+    if (i != CARDLEN-1){
+
+    
     cardArray[i].attachCallback([i](int value){
     sData[i].trigger = 1;
     cardArray[i].update(1);
     Serial.printf("Card triggered: %d\n", i);
     dashboard.sendUpdates();
     });
+
+    }
+    else
+    {
+
+  cardArray[i].attachCallback([i](int value){
+    sData[i].trigger = 1;
+    cardArray[i].update(1);
+    Serial.printf("DOOR CARD!!! triggered: %d\n", i);
+    testingnow();
+     
+    dashboard.sendUpdates();
+    });
+
+    }
+
+
+
+
   }
 
   /* Elegant OTA */
@@ -226,6 +351,13 @@ void setup() {
   server.begin();
   MDNS.addService("http", "tcp", 80);
 
+  startespnow();
+
+
+
+  //Begin Sending Data to Remote ESP's every 250ms
+
+    // asynctimer.setInterval([]() { testingnow();},  3000);
 
 }
 
