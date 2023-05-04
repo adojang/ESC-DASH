@@ -23,21 +23,7 @@
 */
 
 #define NAME "relaycontrol"
-#define MACAD 0xB0 // Refer to Table Below
-
-/* Data Naming Convention for Mac Addresses
-*  0x00 - masterserver
- * 0x01 - humanchain
- * 0x02 - bikelight
- * 0x03 - clockmotor
- * 0x04 - beetle
- * 0x05 - chalicedoor
- * 0x06 - ringreader
- * 0x07 - tangrumtomb
- * 0x08 - thumbreaderdoor
- * 0xA1 - Keypad 1
- * 0xA2 - Keypad 2
-*/
+#define MACAD 0xD0 // Refer to Table in Conventions
 
 
 /* Kernal*/
@@ -99,8 +85,8 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
-
-  if (rData.trigger == 0) opendoor1 = true;
+  Serial.println(rData.trigger);
+  if (rData.trigger == 1) opendoor1 = true;
   if (rData.trigger == 2) opendoor2 = true;
   if (rData.trigger == 3) opendoor3 = true;
   if (rData.trigger == 4) opendoor4 = true;

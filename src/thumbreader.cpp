@@ -22,20 +22,9 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "thumbreaderdoor"
-#define MACAD 0x08 // Refer to Table Below
+#define NAME "thumbreader"
+#define MACAD 0xC0 // Refer to Table in Conventions
 
-/* Data Naming Convention for Mac Addresses
-*  0x00 - masterserver
- * 0x01 - humanchain
- * 0x02 - bikelight
- * 0x03 - clockmotor
- * 0x04 - beetle
- * 0x05 - chalicedoor
- * 0x06 - ringreader
- * 0x07 - tangrumtomb
- * 0x08 - thumbreaderdoor
-*/
 
 /* Kernal*/
 #include <Arduino.h>
