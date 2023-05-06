@@ -41,3 +41,11 @@ In the case of doors:
 2 = Door Chalice Tomb Door
 3 = Door Tomb Casket
 4 = Door Attic HumanChain door
+
+RFID TAG ESP32 PINS:
+
+D27 -   RST
+D23 -   MOSI
+D19 -   MISO
+D18 -   SCK
+D5  -   SDA
