@@ -191,7 +191,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // memcpy(&rData, incomingData, sizeof(rData));
-  Serial.println("Override Data Recieved...");
+  Serial.println("Data Recieved from Somewhere lol.");
 
   //Incoming Data is copied to rData. Do something with it here or in the main loop.
   //Incoming Data Goes Here
@@ -338,8 +338,8 @@ void setup() {
   train_time.setSize(6,6,6,6,6,6);
 
 /* Connect WiFi */
-
- WiFi.mode(WIFI_STA);
+ WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+ WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
 
   WiFi.setAutoReconnect(true);
@@ -520,6 +520,8 @@ thumbreader_card.attachCallback([](int value){
 // }
 
 void loop() {
+    //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  // asynctimer.setInterval([]() {esp_now_send(templateaddress, (uint8_t *) &sData, sizeof(sData));},  5000);
 //Detect and Handle Status Reset when a button is pressed.
   // for (int i=0; i < CARDLEN; i++)
   // {

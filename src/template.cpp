@@ -99,6 +99,16 @@ esp_now_peer_info_t peerInfo;
 bool turnlighton = false;
 
 
+/* Example Function on how to send data to another ESP that you can remove*/
+
+void sendData()
+{
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+      if (result == ESP_OK) { Serial.println("Sent with success");}
+      else {Serial.println("Error sending the data");}
+
+}
+
 /* ESP-NOW Callback Functions*/
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -121,6 +131,10 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // Add your code here to do something with the data recieved.
   //It's probably best to use a flag instead of calling it directly here. Not Sure
 
+  //Demonstration Sending Data:
+
+  sendData();
+
 
 }
  
@@ -128,7 +142,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 void startwifi(){
 
   // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+  WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
 
   WiFi.begin(ssid, password);
@@ -195,15 +210,20 @@ void setup() {
 
 
 
+  //Here are two asynchronus timers you can use to run functions.
+  //See https://github.com/Aasim-A/AsyncTimer
+  // For documentations
 
-
+  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+  // asynctimer.setTimeout([]() {Serial.println("Hello world!");}, 2000);
+// "Hello world!" will be printed to the Serial once after 2 seconds
 }
+
 
 
 void loop() {
 
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+
 
   if (turnlighton) {
     digitalWrite(2,HIGH);

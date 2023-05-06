@@ -142,7 +142,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 void startwifi(){
 
   // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+  WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
 
   WiFi.begin(ssid, password);
@@ -194,6 +195,15 @@ void startespnow(){
     return;
   }
 
+  Serial.println("ESP-NOW Online");
+}
+
+void sendData()
+{
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+      if (result == ESP_OK) { Serial.println("Sent with success");}
+      else {Serial.println("Error sending the data");}
+
 }
 
 void setup() {
@@ -212,14 +222,14 @@ void setup() {
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
 
-
+  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  // asynctimer.setInterval([]() {sendData();},  5000);
 }
 
 
-void loop() {
 
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+
+void loop() {
 
   if (turnlighton) {
     digitalWrite(2,HIGH);
@@ -234,7 +244,10 @@ void loop() {
       MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
       Serial.print("RFID/NFC Tag Type: ");
       Serial.println(rfid.PICC_GetTypeName(piccType));
-
+      sData.trigger = 1;
+      sendData();
+  
+      sData.trigger = 0;
       // print UID in Serial Monitor in the hex format
       Serial.print("UID:");
       for (int i = 0; i < rfid.uid.size; i++) {
