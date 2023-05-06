@@ -174,10 +174,6 @@ Card attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
-/* ESP-NOW */
-
-/* ESP-NOW Structures */
-
 
 // dataPacket sData; // data to send
 dataPacket rData; // data to recieve
@@ -192,6 +188,20 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Data Recieved from Somewhere lol.");
+
+
+    digitalWrite(2,HIGH);
+    asynctimer.setTimeout([]() {
+      for (int i=0;i<8;i++){
+        digitalWrite(2,LOW);
+        delay(75);
+        digitalWrite(2,HIGH);
+        delay(75);
+      }
+      digitalWrite(2,LOW);
+    }, 1000);
+    
+  
 
   //Incoming Data is copied to rData. Do something with it here or in the main loop.
   //Incoming Data Goes Here
@@ -306,15 +316,9 @@ void startespnow(){
 
 }
 
-
-
-
-
-void setup() {
-  Serial.begin(115200);
-  
-
- /* Setup Tabs */
+void configDash(){
+  /* Configure ESP-Dash */
+  /* Setup Tabs */
   // dashboard.setAuthentication("admin", "1234"); // Authentication
   dashboard.setTitle("Escape Room Master Control");
 
@@ -337,7 +341,147 @@ void setup() {
   train_time.setTab(&train);
   train_time.setSize(6,6,6,6,6,6);
 
-/* Connect WiFi */
+
+}
+
+void buttonTimeout(Card* cardptr, int timeout = 3000){
+
+  cardptr->update(1);
+  asynctimer.setTimeout([cardptr]() {
+    cardptr->update(0);
+    dashboard.sendUpdates();
+  }, timeout);
+
+  dashboard.sendUpdates();
+  
+
+}
+
+void startButtonCB(){
+
+
+  /* TEST CALLBACK FUNCTION FOR BLUE LED BUTTON*/
+  testnetwork.attachCallback([](int value){
+  testnetwork.update(value);
+  Serial.printf("TEST BUTTON TRIGGERED: %d\n");
+  sData.trigger=value;
+
+  esp_err_t result = esp_now_send(templateaddress, (uint8_t *) &sData, sizeof(sData));
+  
+  if (result == ESP_OK) { Serial.println("Sent with success");}
+  else {Serial.println("Error sending the data");}
+  
+  dashboard.sendUpdates();
+  });
+
+
+  /* 0 - HumanChainDoor */
+  humanchain_card.attachCallback([](int value){
+  // humanchain_card.update(1);
+  buttonTimeout(&humanchain_card);
+  Serial.printf("Attic Door Triggered\n");
+  sData.trigger = 4;
+  esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
+  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+  sData.trigger = 0;
+    
+  });
+
+/* 0xA1 - bikelight */
+bike_card.attachCallback([](int value){
+bike_card.update(value);
+Serial.printf("Bike Light Triggered\n");
+sData.trigger = value;
+esp_err_t result = esp_now_send(bike, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+sData.trigger = 0;
+dashboard.sendUpdates();
+});
+
+/* 0xA2 - grandfatherclock */
+grandfatherclock_card.attachCallback([](int value){
+buttonTimeout(&grandfatherclock_card);
+Serial.printf("Grandfather Clock Triggered\n");
+sData.trigger = 1;
+esp_err_t result = esp_now_send(grandfatherclock, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+sData.trigger = 0;
+
+});
+
+/* 0xB0 - beetle */
+beetle_card.attachCallback([](int value){
+buttonTimeout(&beetle_card);
+Serial.printf("Beetle Triggered\n");
+sData.trigger = 1;
+esp_err_t result = esp_now_send(beetle, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+sData.trigger = 0;
+
+});
+
+/* 0xB1 - chalicessensor */
+chalice_card.attachCallback([](int value){
+buttonTimeout(&chalice_card);
+Serial.printf("Chalice Sensor Triggered\n");
+sData.trigger = 2;
+esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+sData.trigger = 0;
+
+});
+
+/* 0xB2 - ringreader */
+ringreader_card.attachCallback([](int value){
+buttonTimeout(&ringreader_card);
+Serial.printf("Ring Reader Triggered\n");
+sData.trigger = 1;
+esp_err_t result = esp_now_send(ringreader, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+sData.trigger = 0;
+
+});
+
+/* 0xB3 - tangrumtomb */
+tangrumtomb_card.attachCallback([](int value){
+buttonTimeout(&tangrumtomb_card);
+Serial.printf("Tangram Tomb Triggered\n");
+sData.trigger = 3;
+esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+sData.trigger = 0;
+
+});
+
+/* 0xC0 - thumbreader */
+thumbreader_card.attachCallback([](int value){
+buttonTimeout(&thumbreader_card);
+  Serial.printf("Thumbreader Triggered\n");
+  sData.trigger = 1;
+  esp_err_t result = esp_now_send(thumbreader, (uint8_t *) &sData, sizeof(sData));
+  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+  sData.trigger = 0;
+  
+
+});
+
+/* 0xC1 and 0xC2 - Train Room */
+  trainroomdoor_card.attachCallback([](int value){
+  buttonTimeout(&trainroomdoor_card);
+  Serial.printf("Train Room Triggered\n");
+  sData.trigger = 1;
+  esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
+  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+  sData.trigger = 0;
+  
+});
+
+
+}
+
+void startWifi()
+{
+  /* Connect WiFi */
  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
  WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
@@ -365,186 +509,32 @@ void setup() {
   }
   Serial.println("mDNS responder started");
 
-  /* Initialize Callback Functions */
-
-  /* TEST CALLBACK FUNCTION FOR BLUE LED BUTTON*/
-
-  testnetwork.attachCallback([](int value){
-  testnetwork.update(value);
-  Serial.printf("TEST BUTTON TRIGGERED: %d\n");
-  sData.trigger=value;
-
-  esp_err_t result = esp_now_send(templateaddress, (uint8_t *) &sData, sizeof(sData));
-  
-  if (result == ESP_OK) { Serial.println("Sent with success");}
-  else {Serial.println("Error sending the data");}
-  
-  dashboard.sendUpdates();
-  });
-
-  /* These are the callbacks for all the buttons */
-
-
-  /* 0 - HumanChainDoor */
-  humanchain_card.attachCallback([](int value){
-  humanchain_card.update(1);
-  Serial.printf("Attic Door Triggered\n");
-  sData.trigger = 4;
-  esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
-  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-  sData.trigger = 0;
-    
-  dashboard.sendUpdates();
-  });
-
-/* 0xA1 - bikelight */
-bike_card.attachCallback([](int value){
-bike_card.update(value);
-Serial.printf("Bike Light Triggered\n");
-sData.trigger = value;
-esp_err_t result = esp_now_send(bike, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
-dashboard.sendUpdates();
-});
-
-/* 0xA2 - grandfatherclock */
-grandfatherclock_card.attachCallback([](int value){
-grandfatherclock_card.update(1);
-Serial.printf("Grandfather Clock Triggered\n");
-sData.trigger = 1;
-esp_err_t result = esp_now_send(grandfatherclock, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
-dashboard.sendUpdates();
-});
-
-/* 0xB0 - beetle */
-beetle_card.attachCallback([](int value){
-beetle_card.update(1);
-Serial.printf("Beetle Triggered\n");
-sData.trigger = 1;
-esp_err_t result = esp_now_send(beetle, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
-dashboard.sendUpdates();
-});
-
-/* 0xB1 - chalicessensor */
-chalice_card.attachCallback([](int value){
-chalice_card.update(1);
-Serial.printf("Chalice Sensor Triggered\n");
-sData.trigger = 2;
-esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
-dashboard.sendUpdates();
-});
-
-/* 0xB2 - ringreader */
-ringreader_card.attachCallback([](int value){
-ringreader_card.update(1);
-Serial.printf("Ring Reader Triggered\n");
-sData.trigger = 1;
-esp_err_t result = esp_now_send(ringreader, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
-dashboard.sendUpdates();
-});
-
-/* 0xB3 - tangrumtomb */
-tangrumtomb_card.attachCallback([](int value){
-tangrumtomb_card.update(1);
-Serial.printf("Tangram Tomb Triggered\n");
-sData.trigger = 3;
-esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
-dashboard.sendUpdates();
-});
-
-/* 0xC0 - thumbreader */
-thumbreader_card.attachCallback([](int value){
-  thumbreader_card.update(1);
-  Serial.printf("Thumbreader Triggered\n");
-  sData.trigger = 1;
-  esp_err_t result = esp_now_send(thumbreader, (uint8_t *) &sData, sizeof(sData));
-  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-  sData.trigger = 0;
-  
-  dashboard.sendUpdates();
-});
-
-/* 0xC1 and 0xC2 - Train Room */
-  trainroomdoor_card.attachCallback([](int value){
-  trainroomdoor_card.update(1);
-  Serial.printf("Train Room Triggered\n");
-  sData.trigger = 1;
-  esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
-  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-  sData.trigger = 0;
-  
-  dashboard.sendUpdates();
-});
-
-
-
-
-
-
-
-  /* Elegant OTA */
+    /* Elegant OTA */
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
   server.begin();
   MDNS.addService("http", "tcp", 80);
 
+}
 
 
+void setup() {
+  Serial.begin(115200);
+  //Signaling LED
+    pinMode(2, OUTPUT);
+  digitalWrite(2,LOW);
+  
+  /* Start Wifi and ESP-DASH*/
+  startWifi();
+  configDash();
+  startButtonCB();
   startespnow();
 
 
-
-  //Begin Sending Data to Remote ESP's every 250ms
-
-    // asynctimer.setInterval([]() { testingnow();},  3000);
-
 }
 
-// void setButtonFalse(int i){
-
-//     sData.trigger = 0;
-//     cardArray[i].update(0);
-//     dashboard.sendUpdates();
-//     Serial.printf("Card %d, disabled\n", i);
-// }
 
 void loop() {
-    //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  // asynctimer.setInterval([]() {esp_now_send(templateaddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-//Detect and Handle Status Reset when a button is pressed.
-  // for (int i=0; i < CARDLEN; i++)
-  // {
-  //   if (sData[i].trigger != 0)
-  //   {
-  //     sData[i].trigger = 0;
-  //     Serial.println("Timer Triggered 2s");
-
-
-  //   asynctimer.setTimeout([i]() {
-  //     setButtonFalse(i);
-  //   }, 2000);
-  //   }
-  // }
-
-
-
-  // //Reset Check if Card Triggered
-  // for (int i; i < CARDLEN; i++){
-  //   sDataprev[i] = sData[i];
-  // }
-
-
 
 
 
