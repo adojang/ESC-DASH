@@ -87,7 +87,12 @@ dataPacket rData; // data to recieve
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 
-bool turnlighton = false;
+/*Keypad Password */
+const String correctSequence = "1234";
+String enteredSequence = "";
+unsigned long lastKeyPressTimestamp = 0;
+const unsigned long resetTimeout = 5000; // 20 seconds
+
 
 /* ESP-NOW Callback Functions*/
 
@@ -100,26 +105,27 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
   memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
-
-  if (rData.trigger == 1)
-  {
-    // You should never use delay in this function. It might cause the ESP-NOW to crash.
-    turnlighton = true;
+  for (int i=0;i<8;i++){
+    digitalWrite(2,HIGH);
+    delay(75);
+    digitalWrite(2,LOW);
+    delay(75);
   }
-  else
-  {
-    turnlighton = false;
-  }
-
-  // Add your code here to do something with the data recieved.
-  // It's probably best to use a flag instead of calling it directly here. Not Sure
 }
+
+/*Keypad Password */
+bool checkSequence() {
+  return enteredSequence == correctSequence;
+}
+
+
 
 void startwifi()
 {
 
   // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+  WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
 
   WiFi.begin(ssid, password);
@@ -192,13 +198,18 @@ void setup()
   customKeypad.begin(); // Startup for Keypad
 }
 
+
+void sendData()
+{
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+      if (result == ESP_OK) { Serial.println("Sent with success");}
+      else {Serial.println("Error sending the data");}
+
+}
+
 void loop()
 {
-
-  // This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  asynctimer.setInterval([]()
-  { esp_now_send(broadcastAddress, (uint8_t *)&sData, sizeof(sData)); },
-  5000);
+  // ... (keep the existing code before customKeypad.tick())
 
   customKeypad.tick();
 
@@ -206,10 +217,37 @@ void loop()
   {
     keypadEvent e = customKeypad.read();
     Serial.print((char)e.bit.KEY);
-    if (e.bit.EVENT == KEY_JUST_PRESSED)
+    if (e.bit.EVENT == KEY_JUST_PRESSED) {
+      char key = (char)e.bit.KEY;
+      if (key == '#') {
+        if (checkSequence()) {
+          Serial.println("Correct sequence entered!");
+          sendData();
+          for (int i=0;i<8;i++){
+              digitalWrite(2,HIGH);
+              delay(75);
+              digitalWrite(2,LOW);
+              delay(75);
+            }
+        } else {
+          Serial.println("WRONG");
+        }
+        enteredSequence = ""; // Reset the entered sequence after checking
+      } else {
+        enteredSequence += key;
+      }
+      lastKeyPressTimestamp = millis();
       Serial.println(" pressed");
-    else if (e.bit.EVENT == KEY_JUST_RELEASED)
+    } else if (e.bit.EVENT == KEY_JUST_RELEASED) {
       Serial.println(" released");
+    }
+  }
+
+  // Reset entered sequence if there's no activity for 20 seconds
+  if (millis() - lastKeyPressTimestamp >= resetTimeout) {
+    Serial.println("Resetting sequence due to timeout");
+    enteredSequence = "";
+    lastKeyPressTimestamp = millis();
   }
 
   // Required for the asynctimer to work.
