@@ -26,7 +26,7 @@
 #define MACAD 0xEE // Refer to Table in Conventions
 
 #define SS_PIN  5  // ESP32 pin GIOP5 
-#define RST_PIN 27 // ESP32 pin GIOP27
+#define RST_PIN 21 // ESP32 pin GIOP21
 /* Data Naming Convention for Mac Addresses
 
 *  0x00 - masterserver
@@ -219,6 +219,9 @@ void setup() {
 
   SPI.begin(); // init SPI bus
   rfid.PCD_Init(); // init MFRC522
+  // Enhance the MFRC522 Receiver Gain to maximum value of some 48 dB
+  rfid.PCD_SetRegisterBitMask(rfid.RFCfgReg, (0x07<<4));
+
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
 

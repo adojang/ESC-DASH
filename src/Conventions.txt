@@ -44,8 +44,10 @@ In the case of doors:
 
 RFID TAG ESP32 PINS:
 
-D27 -   RST
-D23 -   MOSI
-D19 -   MISO
-D18 -   SCK
 D5  -   SDA
+D18 -   SCK
+D19 -   MISO
+D27 -   RST (21)
+
+D23 -   MOSI
+

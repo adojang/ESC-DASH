@@ -214,7 +214,7 @@ void setup() {
   //See https://github.com/Aasim-A/AsyncTimer
   // For documentations
 
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+   asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
   // asynctimer.setTimeout([]() {Serial.println("Hello world!");}, 2000);
 // "Hello world!" will be printed to the Serial once after 2 seconds
 }
