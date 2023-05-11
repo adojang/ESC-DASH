@@ -4,7 +4,7 @@
   Adriaan van Wijk
   22 May 2023
 
-  Give a short explaination of what this code does and for what puzzle it is.
+  RFID Template To Use
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -22,9 +22,11 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "template"
+#define NAME "RFIDtemplate"
 #define MACAD 0xEE // Refer to Table in Conventions
 
+#define SS_PIN  5  // ESP32 pin GIOP5 
+#define RST_PIN 27 // ESP32 pin GIOP27
 /* Data Naming Convention for Mac Addresses
 
 *  0x00 - masterserver
@@ -46,6 +48,10 @@
  * 0xD0 - relaycontrol
 
  * 0xEE - template
+
+ * 0xF0 - Reserved for RFID
+
+
 
 */
 
@@ -70,6 +76,14 @@
 
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
+
+/* RFID */
+#include <SPI.h>
+#include <MFRC522.h>
+
+
+MFRC522 rfid(SS_PIN, RST_PIN);
+
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
@@ -99,16 +113,6 @@ esp_now_peer_info_t peerInfo;
 bool turnlighton = false;
 
 
-/* Example Function on how to send data to another ESP that you can remove*/
-
-void sendData()
-{
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-      if (result == ESP_OK) { Serial.println("Sent with success");}
-      else {Serial.println("Error sending the data");}
-
-}
-
 /* ESP-NOW Callback Functions*/
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -130,10 +134,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   
   // Add your code here to do something with the data recieved.
   //It's probably best to use a flag instead of calling it directly here. Not Sure
-
-  //Demonstration Sending Data:
-
-  sendData();
 
 
 }
@@ -195,6 +195,15 @@ void startespnow(){
     return;
   }
 
+  Serial.println("ESP-NOW Online");
+}
+
+void sendData()
+{
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+      if (result == ESP_OK) { Serial.println("Sent with success");}
+      else {Serial.println("Error sending the data");}
+
 }
 
 void setup() {
@@ -208,28 +217,48 @@ void setup() {
   digitalWrite(2,LOW);
 
 
+  SPI.begin(); // init SPI bus
+  rfid.PCD_Init(); // init MFRC522
+  Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
 
-  //Here are two asynchronus timers you can use to run functions.
-  //See https://github.com/Aasim-A/AsyncTimer
-  // For documentations
-
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-  // asynctimer.setTimeout([]() {Serial.println("Hello world!");}, 2000);
-// "Hello world!" will be printed to the Serial once after 2 seconds
+  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  // asynctimer.setInterval([]() {sendData();},  5000);
 }
 
 
 
+
 void loop() {
-
-
 
   if (turnlighton) {
     digitalWrite(2,HIGH);
   }
   else {
     digitalWrite(2,LOW);
+  }
+
+
+  if (rfid.PICC_IsNewCardPresent()) { // new tag is available
+    if (rfid.PICC_ReadCardSerial()) { // NUID has been readed
+      MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
+      Serial.print("RFID/NFC Tag Type: ");
+      Serial.println(rfid.PICC_GetTypeName(piccType));
+      sData.trigger = 1;
+      sendData();
+  
+      sData.trigger = 0;
+      // print UID in Serial Monitor in the hex format
+      Serial.print("UID:");
+      for (int i = 0; i < rfid.uid.size; i++) {
+        Serial.print(rfid.uid.uidByte[i] < 0x10 ? " 0" : " ");
+        Serial.print(rfid.uid.uidByte[i], HEX);
+      }
+      Serial.println();
+
+      rfid.PICC_HaltA(); // halt PICC
+      rfid.PCD_StopCrypto1(); // stop encryption on PCD
+    }
   }
 
 

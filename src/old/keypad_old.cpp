@@ -22,34 +22,25 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "template"
-#define MACAD 0xEE // Refer to Table in Conventions
+#define NAME "keypad1"
+#define MACAD 0xA1 // Refer to Table Below
 
 /* Data Naming Convention for Mac Addresses
-
 *  0x00 - masterserver
-
-
- * 0xA0 - humanchain
- * 0xA1 - bikelight
- * 0xA2 - clockmotor
-
- * 0xB0 - beetle
- * 0xB1 - chalicessensor
- * 0xB2 - ringreader
- * 0xB3 - tangrumtomb
-
- * 0xC0 - thumbreader
- * 0xC1 - Keypad 1
- * 0xC2 - Keypad 2
-
- * 0xD0 - relaycontrol
-
- * 0xEE - template
-
+ * 0x01 - humanchain
+ * 0x02 - bikelight
+ * 0x03 - clockmotor
+ * 0x04 - beetle
+ * 0x05 - chalicedoor
+ * 0x06 - ringreader
+ * 0x07 - tangrumtomb
+ * 0x08 - thumbreaderdoor
+ * 0xA1 - Keypad 1
+ * 0xA2 - Keypad 2
 */
 
-
+/* Keypad Library*/
+#include "Adafruit_Keypad.h"
 
 
 /* Kernal*/
@@ -71,10 +62,27 @@
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
 
-// REPLACE WITH THE MAC Address of your receiver 
+/* Setup Keypad*/
+const byte ROWS = 4; // rows
+const byte COLS = 3; // columns
+//define the symbols on the buttons of the keypads
+char keys[ROWS][COLS] = {
+  {'1','2','3'},
+  {'4','5','6'},
+  {'7','8','9'},
+  {'*','0','#'}
+};
+//ESP RIGHT SIDE
+byte rowPins[ROWS] = {19, 4, 16, 5}; //connect to the row pinouts of the keypad
+byte colPins[COLS] = {18, 21, 17}; //connect to the column pinouts of the keypad
+
+//initialize an instance of class NewKeypad
+Adafruit_Keypad customKeypad = Adafruit_Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+
+/* SET MAC ADDRESS */
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
-
 
 /* ESP Async Timer */
 AsyncTimer asynctimer;
@@ -96,59 +104,57 @@ AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 
 
-bool turnlighton = false;
-
-
-/* Example Function on how to send data to another ESP that you can remove*/
-
-void sendData()
-{
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-      if (result == ESP_OK) { Serial.println("Sent with success");}
-      else {Serial.println("Error sending the data");}
-
-}
-
-/* ESP-NOW Callback Functions*/
-
+// Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+
 }
 
+// Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
 
-  if (rData.trigger == 1) {
-  //You should never use delay in this function. It might cause the ESP-NOW to crash.
-    turnlighton = true;
-  }
-  else
-  {
-    turnlighton = false;
-  }
-  
-  // Add your code here to do something with the data recieved.
-  //It's probably best to use a flag instead of calling it directly here. Not Sure
-
-  //Demonstration Sending Data:
-
-  sendData();
+  //Incoming Data is copied to rData. Do something with it here or in the main loop.
+  //Incoming Data Goes Here
 
 
 }
- 
 
-void startwifi(){
+void startespnow(){
+    // Init ESP-NOW
+    if (esp_now_init() != ESP_OK) {
+      Serial.println("Error initializing ESP-NOW");
+      return;
+    }
 
-  // Set device as a Wi-Fi Station
-  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
-  WiFi.mode(WIFI_AP_STA);
+    // Once ESPNow is successfully Init, we will register for Send CB to
+    // get the status of Trasnmitted packet
+    esp_now_register_send_cb(OnDataSent);
+    
+    // Register peer
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 0;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+      Serial.println("Failed to add peer");
+      return;
+    }
+    // Register for a callback function that will be called when data is received
+    esp_now_register_recv_cb(OnDataRecv);
+}
+
+void startup(){
+  /* Connect WiFi */
+  WiFi.mode(WIFI_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-
+  
+  WiFi.setAutoReconnect(true);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+    delay(500);
     Serial.print(".");
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -156,7 +162,7 @@ void startwifi(){
       return;
   }
 
-   /* MDNS */
+  /* MDNS */
   if (!MDNS.begin(NAME)) {
         Serial.println("Error setting up MDNS responder!");
         while(1) {
@@ -164,7 +170,6 @@ void startwifi(){
         }
     }
   Serial.println("mDNS responder started");
-  Serial.printf("*** PROGRAM START ***\n\n");
   
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
@@ -173,67 +178,33 @@ void startwifi(){
 
 }
 
-void startespnow(){
-  // Init ESP-NOW
-  if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
-    return;
-  }
-
-  //Register Callback Functions
-  esp_now_register_send_cb(OnDataSent);
-  esp_now_register_recv_cb(OnDataRecv);
-
-  // Register peer
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 0;  
-  peerInfo.encrypt = false;
-  
-  // Add peer        
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
-    Serial.println("Failed to add peer");
-    return;
-  }
-
-}
 
 void setup() {
   Serial.begin(115200);
-  startwifi();
-  startespnow();
-
-  //Make any Edits you need to add below this line ------------------------------
-
-  pinMode(2, OUTPUT);
-  digitalWrite(2,LOW);
+  startup(); // Startup for Wifi, mDNS, and OTA
+  startespnow(); // Startup for ESP-NOW
+  customKeypad.begin(); // Startup for Keypad
 
 
+  //Begin Sending Data to Remote ESP's every 250ms
+  // asynctimer.setInterval([]() { esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  250);
 
-
-  //Here are two asynchronus timers you can use to run functions.
-  //See https://github.com/Aasim-A/AsyncTimer
-  // For documentations
-
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-  // asynctimer.setTimeout([]() {Serial.println("Hello world!");}, 2000);
-// "Hello world!" will be printed to the Serial once after 2 seconds
 }
 
 
-
 void loop() {
+  //Insert Code Here
+  //You need to edit OnDataRecv to handle incoming overrides.
+  customKeypad.tick();
 
-
-
-  if (turnlighton) {
-    digitalWrite(2,HIGH);
+  while(customKeypad.available()){
+    keypadEvent e = customKeypad.read();
+    Serial.print((char)e.bit.KEY);
+    if(e.bit.EVENT == KEY_JUST_PRESSED) Serial.println(" pressed");
+    else if(e.bit.EVENT == KEY_JUST_RELEASED) Serial.println(" released");
   }
-  else {
-    digitalWrite(2,LOW);
-  }
 
+  delay(10);
 
-
-  //Required for the asynctimer to work.
   asynctimer.handle();
 }

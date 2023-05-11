@@ -4,7 +4,7 @@
   Adriaan van Wijk
   22 May 2023
 
-  Give a short explaination of what this code does and for what puzzle it is.
+  This code controls 4 relays which will arm and disarm electromagnetic locks.
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -22,20 +22,9 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "thumbreaderdoor"
-#define MACAD 0x08 // Refer to Table Below
+#define NAME "relaycontrol"
+#define MACAD 0xD0 // Refer to Table in Conventions
 
-/* Data Naming Convention for Mac Addresses
-*  0x00 - masterserver
- * 0x01 - humanchain
- * 0x02 - bikelight
- * 0x03 - clockmotor
- * 0x04 - beetle
- * 0x05 - chalicedoor
- * 0x06 - ringreader
- * 0x07 - tangrumtomb
- * 0x08 - thumbreaderdoor
-*/
 
 /* Kernal*/
 #include <Arduino.h>
@@ -56,9 +45,10 @@
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
 
-/* SET MAC ADDRESS */
+// REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
+
 
 /* ESP Async Timer */
 AsyncTimer asynctimer;
@@ -78,59 +68,44 @@ dataPacket rData; // data to recieve
 /* Setup */
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
+String success;
+
+bool opendoor1 = false;
+bool opendoor2 = false;
+bool opendoor3 = false;
+bool opendoor4 = false;
 
 
-// Callback when data is sent
+/* ESP-NOW Callback Functions*/
+
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
-
 }
 
-// Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
+  Serial.println(rData.trigger);
+  if (rData.trigger == 1) opendoor1 = true;
+  if (rData.trigger == 2) opendoor2 = true;
+  if (rData.trigger == 3) opendoor3 = true;
+  if (rData.trigger == 4) opendoor4 = true;
 
-  //Incoming Data is copied to rData. Do something with it here or in the main loop.
-  //Incoming Data Goes Here
+  // Add your code here to do something with the data recieved
 
 
 }
+ 
 
-void startespnow(){
-    // Init ESP-NOW
-    if (esp_now_init() != ESP_OK) {
-      Serial.println("Error initializing ESP-NOW");
-      return;
-    }
+void startwifi(){
 
-    // Once ESPNow is successfully Init, we will register for Send CB to
-    // get the status of Trasnmitted packet
-    esp_now_register_send_cb(OnDataSent);
-    
-    // Register peer
-    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = 0;  
-    peerInfo.encrypt = false;
-    
-    // Add peer        
-    if (esp_now_add_peer(&peerInfo) != ESP_OK){
-      Serial.println("Failed to add peer");
-      return;
-    }
-    // Register for a callback function that will be called when data is received
-    esp_now_register_recv_cb(OnDataRecv);
-}
-
-void startup(){
-  /* Connect WiFi */
+  // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-  
-  WiFi.setAutoReconnect(true);
+
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    delay(200);
     Serial.print(".");
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -138,7 +113,7 @@ void startup(){
       return;
   }
 
-  /* MDNS */
+   /* MDNS */
   if (!MDNS.begin(NAME)) {
         Serial.println("Error setting up MDNS responder!");
         while(1) {
@@ -146,6 +121,7 @@ void startup(){
         }
     }
   Serial.println("mDNS responder started");
+  Serial.printf("*** PROGRAM START ***\n\n");
   
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
@@ -154,21 +130,85 @@ void startup(){
 
 }
 
+void startespnow(){
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
 
-void setup() {
-  Serial.begin(115200);
-  startup(); // Startup for Wifi, mDNS, and OTA
-  startespnow(); // Startup for ESP-NOW
+  //Register Callback Functions
+  esp_now_register_send_cb(OnDataSent);
+  esp_now_register_recv_cb(OnDataRecv);
 
-  //Begin Sending Data to Remote ESP's every 250ms
-  // asynctimer.setInterval([]() { esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  250);
+  // Register peer
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 0;  
+  peerInfo.encrypt = false;
+  
+  // Add peer        
+  if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    Serial.println("Failed to add peer");
+    return;
+  }
 
 }
 
+void setup() {
+  Serial.begin(115200);
+  startwifi();
+  startespnow();
+
+
+  pinMode(5, OUTPUT);
+  pinMode(18, OUTPUT);
+  pinMode(19, OUTPUT);
+  pinMode(21, OUTPUT);
+  digitalWrite(5, HIGH);
+  delay(250);
+  digitalWrite(18, HIGH);
+  delay(250);
+  digitalWrite(19, HIGH);
+  delay(250);
+  digitalWrite(21, HIGH);
+
+
+  }
+
+
+void triggerDoor(int pin, int timeout){
+  digitalWrite(pin, LOW);
+  Serial.println("Door Opened");
+  delay(timeout);
+  digitalWrite(pin, HIGH);
+  Serial.println("Door Closed");
+
+}
 
 void loop() {
-  //Insert Code Here
-  //You need to edit OnDataRecv to handle incoming overrides.
+
+  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+
+  if (opendoor1 == true) {
+    triggerDoor(5,2000);
+    opendoor1 = false;
+  }
+
+  if (opendoor2 == true) {
+    triggerDoor(18,2000);
+    opendoor2 = false;
+  }
+
+  if (opendoor3 == true) {
+    triggerDoor(19,2000);
+    opendoor3 = false;
+  }
+
+  if (opendoor4 == true) {
+    triggerDoor(21,2000);
+    opendoor4 = false;
+  }
 
 
   asynctimer.handle();

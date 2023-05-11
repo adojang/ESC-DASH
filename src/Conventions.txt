@@ -1,0 +1,51 @@
+/* Data Naming Convention for Mac Addresses
+
+*  0x00 - masterserver
+
+
+ * 0xA0 - humanchain
+ * 0xA1 - bike
+ * 0xA2 - grandfatherclock
+ * 0xA3 - bike light (reserved)
+
+ * 0xB0 - beetle
+ * 0xB1 - chalicessensor
+ * 0xB2 - ringreader
+ * 0xB3 - tangrumtomb
+
+ * 0xC0 - thumbreader
+ * 0xC1 - Keypad 1
+ * 0xC2 - Keypad 2
+
+ * 0xD0 - relaycontrol
+
+ * 0xEE - template
+
+*/
+
+
+typedef struct dataPacket {
+int trigger = 0;
+} dataPacket;
+
+By default:
+0 = False, not triggered.
+1 = True, triggered.
+
+By default, we want everything to be a 'oneshot' as far as possible.
+
+
+In the case of doors:
+0 = Do Nothing.
+1 = Door Train Entrance
+2 = Door Chalice Tomb Door
+3 = Door Tomb Casket
+4 = Door Attic HumanChain door
+
+RFID TAG ESP32 PINS:
+
+D27 -   RST
+D23 -   MOSI
+D19 -   MISO
+D18 -   SCK
+D5  -   SDA
