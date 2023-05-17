@@ -205,7 +205,7 @@ int IsPuzzleSolved(){ //Function that reads all the reed switch inputs and deter
     if(digitalRead(ReedSwitchPin_2)==1){Serial.println("Reed2: ON");
       if(digitalRead(ReedSwitchPin_3)==1){Serial.println("Reed3: ON");
         if(digitalRead(ReedSwitchPin_4)==1){Serial.println("Reed4: ON");         
-          Blink();         
+          //Blink();         
           return 1;      
         }else{return 0;}
       }else{return 0;}
