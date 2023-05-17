@@ -235,6 +235,7 @@ void loop() {
   CurrentMillis2 = millis();
   PuzzlesolvedPrev=PuzzleSolved;
   PuzzleSolved=IsPuzzleSolved();
+  sData.trigger=PuzzleSolved;
   if(OverrideTrigger==1){
   PuzzleSolved = rData.trigger;
   }

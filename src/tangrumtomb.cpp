@@ -268,6 +268,7 @@ void setup() {
 void loop() {
   //Insert Code Here
   PuzzleSolved=IsPuzzleSolved();
+  sData.trigger=PuzzleSolved;
 
 
   //You need to edit OnDataRecv to handle incoming overrides.
