@@ -81,7 +81,7 @@ int ReedSwitchPin_1 = 27; //Reed switch output 1
 int ReedSwitchPin_2 = 26; //Reed switch output 2
 int ReedSwitchPin_3 = 25; //Reed switch output 3
 int ReedSwitchPin_4 = 33; //Reed switch output 4
-int MagneticLockRelayPin = 34;  //Maglock relay activation pin 
+int MagneticLockRelayPin = 16;  //Maglock relay activation pin 
 
 /*Other Global Variables*/
 int PuzzleSolved = 0;
