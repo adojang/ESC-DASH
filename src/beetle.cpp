@@ -88,12 +88,12 @@ int PuzzleSolved = 0;
 int PuzzlesolvedPrev = 0;
 int MaglockActivationTrigger = 0;
 int MaglockTimerStart = 0;
-int CurrentMillis = 0;
+int CurrentMillis1 = 0;
 int OverrideTrigger = 0;
 int ledState = LOW;
 unsigned long PreviousMillis = 0;
 const long BlinkDelayInterval = 30;
-unsigned long CurrentMillis = 0;
+unsigned long CurrentMillis2 = 0;
 
 /* Setup */
 AsyncWebServer server(80);
@@ -184,9 +184,9 @@ void startup(){
 
 
 void Blink(){ //Function that blinks the blue LED onboard the ESP32
-if (CurrentMillis - PreviousMillis >= BlinkDelayInterval) {
+if (CurrentMillis2 - PreviousMillis >= BlinkDelayInterval) {
     // save the last time you blinked the LED
-    PreviousMillis = CurrentMillis;
+    PreviousMillis = CurrentMillis2;
 
     // if the LED is off turn it on and vice-versa:
     if (ledState == LOW) {
@@ -232,7 +232,7 @@ void setup() {
 
 void loop() {
   //Insert Code Here
-  CurrentMillis = millis();
+  CurrentMillis2 = millis();
   PuzzlesolvedPrev=PuzzleSolved;
   PuzzleSolved=IsPuzzleSolved();
   if(OverrideTrigger==1){
@@ -244,8 +244,8 @@ void loop() {
     MaglockActivationTrigger=1;
   }
   if(MaglockActivationTrigger==1){
-    CurrentMillis=millis();
-    if((CurrentMillis>=MaglockTimerStart)&&(CurrentMillis<=(MaglockTimerStart+900))){
+    CurrentMillis1=millis();
+    if((CurrentMillis1>=MaglockTimerStart)&&(CurrentMillis1<=(MaglockTimerStart+900))){
       digitalWrite(MagneticLockRelayPin, LOW);
       Blink();
     }
