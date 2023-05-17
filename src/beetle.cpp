@@ -76,19 +76,33 @@ dataPacket sData; // data to send
 dataPacket rData; // data to recieve
 
 /*Pin Variables*/
-int Onboard_LED = 2;
-int ReedSwitchPin_1 = 27;
-int ReedSwitchPin_2 = 26;
-int ReedSwitchPin_3 = 25;
-int ReedSwitchPin_4 = 33;
+int Onboard_LED = 2;  //Onboard blue LED pin 
+int ReedSwitchPin_1 = 27; //Reed switch output 1
+int ReedSwitchPin_2 = 26; //Reed switch output 2
+int ReedSwitchPin_3 = 25; //Reed switch output 3
+int ReedSwitchPin_4 = 33; //Reed switch output 4
+int MagneticLockRelayPin = 34;  //Maglock relay activation pin 
 
 /*Other Global Variables*/
 int PuzzleSolved = 0;
+int PuzzlesolvedPrev = 0;
+int MaglockActivationTrigger = 0;
+int MaglockTimerStart = 0;
+int CurrentMillis = 0;
+int OverrideTrigger = 0;
+int ledState = LOW;
+unsigned long PreviousMillis = 0;
+const long BlinkDelayInterval = 30;
+unsigned long CurrentMillis = 0;
 
 /* Setup */
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 
+/*Function that is called to override magnetic lock from Master*/
+void Override(){
+  OverrideTrigger=1;
+}
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -103,6 +117,9 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   //Incoming Data is copied to rData. Do something with it here or in the main loop.
   //Incoming Data Goes Here
+  if(rData.trigger==1){
+  Override();
+  }
 
 
 }
@@ -164,18 +181,30 @@ void startup(){
 
 }
 
+
+
 void Blink(){ //Function that blinks the blue LED onboard the ESP32
-  digitalWrite(Onboard_LED, HIGH); // turn the LED on
-  delay(50);             // wait for 50 milliseconds
-  digitalWrite(Onboard_LED, LOW);  // turn the LED off
-  delay(50);             // wait for 50 milliseconds 
+if (CurrentMillis - PreviousMillis >= BlinkDelayInterval) {
+    // save the last time you blinked the LED
+    PreviousMillis = CurrentMillis;
+
+    // if the LED is off turn it on and vice-versa:
+    if (ledState == LOW) {
+      ledState = HIGH;
+    } else {
+      ledState = LOW;
+    }
+
+    // set the LED with the ledState of the variable:
+    digitalWrite(Onboard_LED, ledState);
+  }
 }
 
 int IsPuzzleSolved(){ //Function that reads all the reed switch inputs and determines if puzzle is solved or not
-  if(digitalRead(ReedSwitchPin_1)==1){ //Serial.println("Reed1: ON");
-    if(digitalRead(ReedSwitchPin_2)==1){//Serial.println("Reed2: ON");
-      if(digitalRead(ReedSwitchPin_3)==1){//Serial.println("Reed3: ON");
-        if(digitalRead(ReedSwitchPin_4)==1){//Serial.println("Reed4: ON");         
+  if(digitalRead(ReedSwitchPin_1)==1){ Serial.println("Reed1: ON");
+    if(digitalRead(ReedSwitchPin_2)==1){Serial.println("Reed2: ON");
+      if(digitalRead(ReedSwitchPin_3)==1){Serial.println("Reed3: ON");
+        if(digitalRead(ReedSwitchPin_4)==1){Serial.println("Reed4: ON");         
           Blink();         
           return 1;      
         }else{return 0;}
@@ -184,13 +213,11 @@ int IsPuzzleSolved(){ //Function that reads all the reed switch inputs and deter
   }else{return 0;}  
 }
 
-
-
 void setup() {
   sData.trigger = 0;
   Serial.begin(115200);
-  //startup(); // Startup for Wifi, mDNS, and OTA
-  //startespnow(); // Startup for ESP-NOW
+  startup(); // Startup for Wifi, mDNS, and OTA
+  startespnow(); // Startup for ESP-NOW
   pinMode(Onboard_LED,OUTPUT); //Onboard LED pin configuration
   pinMode(ReedSwitchPin_1, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
   pinMode(ReedSwitchPin_2, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
@@ -198,22 +225,36 @@ void setup() {
   pinMode(ReedSwitchPin_4, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
 
   //Begin Sending Data to Remote ESP's every 250ms
-  // asynctimer.setInterval([]() { esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  250);
+   asynctimer.setInterval([]() { esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  250);
 
 }
 
 
 void loop() {
   //Insert Code Here
+  CurrentMillis = millis();
+  PuzzlesolvedPrev=PuzzleSolved;
   PuzzleSolved=IsPuzzleSolved();
+  if(OverrideTrigger==1){
+  PuzzleSolved = rData.trigger;
+  }
   sData.trigger=PuzzleSolved;
-  //Serial.println(PuzzleSolved);
+  if(PuzzlesolvedPrev==0 && PuzzleSolved==1){
+    MaglockTimerStart=millis();
+    MaglockActivationTrigger=1;
+  }
+  if(MaglockActivationTrigger==1){
+    CurrentMillis=millis();
+    if((CurrentMillis>=MaglockTimerStart)&&(CurrentMillis<=(MaglockTimerStart+900))){
+      digitalWrite(MagneticLockRelayPin, LOW);
+      Blink();
+    }
+    else{
+      digitalWrite(MagneticLockRelayPin, HIGH);
+      MaglockActivationTrigger=0;
+    }
+  }
   //You need to edit OnDataRecv to handle incoming overrides.
-
-  //if(digitalRead(ReedSwitchPin_1)){Serial.println("Reed1: ON");}
-  //if(digitalRead(ReedSwitchPin_2)){Serial.println("Reed2: ON");}
-  //if(digitalRead(ReedSwitchPin_3)){Serial.println("Reed3: ON");}
-  //if(digitalRead(ReedSwitchPin_4)){Serial.println("Reed4: ON");}
 
   asynctimer.handle();
 }
