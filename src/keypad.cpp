@@ -25,7 +25,6 @@
 #define NAME "keypad"
 #define MACAD 0xC0 // Manually Refer to Table in Conventions
 
-
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
@@ -61,8 +60,18 @@ char keys[ROWS][COLS] = {
 byte rowPins[ROWS] = {19, 4, 16, 5}; // connect to the row pinouts of the keypad
 byte colPins[COLS] = {18, 21, 17};   // connect to the column pinouts of the keypad
 
+byte rowPins2[ROWS] = {14, 32, 33, 26}; // connect to the row pinouts of the keypad
+byte colPins2[COLS] = {27, 12, 25};   // connect to the column pinouts of the keypad
+
+// C2 R1 C1 R4 C3 R3 R2
+//12 14 27 26 25 33 32
+
 // initialize an instance of class NewKeypad
 Adafruit_Keypad customKeypad = Adafruit_Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+Adafruit_Keypad customKeypad2 = Adafruit_Keypad(makeKeymap(keys), rowPins2, colPins2, ROWS, COLS);
+
+
+
 
 // REPLACE WITH THE MAC Address of your receiver
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01}; // Address of Room Master
@@ -90,6 +99,11 @@ String enteredSequence = "";
 unsigned long lastKeyPressTimestamp = 0;
 const unsigned long resetTimeout = 5000; // 20 seconds
 
+const String correctSequence2 = "777";
+String enteredSequence2 = "";
+unsigned long lastKeyPressTimestamp2 = 0;
+const unsigned long resetTimeout2 = 5000; // 20 seconds
+
 
 /* ESP-NOW Callback Functions*/
 
@@ -107,7 +121,9 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 bool checkSequence() {
   return enteredSequence == correctSequence;
 }
-
+bool checkSequence2() {
+  return enteredSequence2 == correctSequence2;
+}
 
 
 void startwifi()
@@ -198,7 +214,7 @@ void setup()
   digitalWrite(2, LOW);
 
   customKeypad.begin(); // Startup for Keypad
-
+  customKeypad2.begin(); // Startup for Keypad
   // asynctimer.setInterval([]() {
   //     sendData();
   //   }, 3000);
@@ -211,6 +227,7 @@ void loop()
   // ... (keep the existing code before customKeypad.tick())
 
   customKeypad.tick();
+  customKeypad2.tick();
 
   while (customKeypad.available())
   {
@@ -242,11 +259,48 @@ void loop()
     }
   }
 
+  while (customKeypad2.available())
+  {
+    keypadEvent e2 = customKeypad2.read();
+    Serial.print((char)e2.bit.KEY);
+    if (e2.bit.EVENT == KEY_JUST_PRESSED) {
+      char key2 = (char)e2.bit.KEY;
+      if (key2 == '#') {
+        if (checkSequence2()) {
+          Serial.println("Correct sequence entered!");
+          sendData();
+          for (int i=0;i<8;i++){
+              digitalWrite(2,HIGH);
+              delay(75);
+              digitalWrite(2,LOW);
+              delay(75);
+            }
+        } else {
+          Serial.println("WRONG");
+        }
+        enteredSequence2 = ""; // Reset the entered sequence after checking
+      } else {
+        enteredSequence2 += key2;
+      }
+      lastKeyPressTimestamp2 = millis();
+      Serial.println(" pressed");
+    } else if (e2.bit.EVENT == KEY_JUST_RELEASED) {
+      Serial.println(" released");
+    }
+  }
+
+
   // Reset entered sequence if there's no activity for 20 seconds
   if (millis() - lastKeyPressTimestamp >= resetTimeout) {
     Serial.println("Resetting sequence due to timeout");
     enteredSequence = "";
     lastKeyPressTimestamp = millis();
+  }
+
+    if (millis() - lastKeyPressTimestamp2 >= resetTimeout2) {
+    Serial.println("Resetting sequence 2 due to timeout");
+    enteredSequence2 = "";
+    lastKeyPressTimestamp2 = millis();
   }
 
   // Required for the asynctimer to work.
