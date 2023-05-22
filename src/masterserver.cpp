@@ -108,14 +108,19 @@ Card bike_card(&dashboard, BUTTON_CARD, "Bicycle Lightbulb Override"); // not mo
 Card grandfatherclock_card(&dashboard, BUTTON_CARD, "Clock Motor Override"); //momentary
 
 /* Ancient Tomb */
-Card sennet_card(&dashboard, BUTTON_CARD, "Open Beetle Puzle"); //momentary
+Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
 Card chalice_card(&dashboard, BUTTON_CARD, "Open Chalice Door"); //momentary
 Card ringreader_card(&dashboard, BUTTON_CARD, "Override Ring Reader"); //momentary
-Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Tangrum Puzzle Override"); //momentary
+Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Open Tomb"); //momentary
 
 /* All Aboard (Train) */
 Card trainroomdoor_card(&dashboard, BUTTON_CARD, "Open Train Room Door"); //momentary
-Card thumbreader_card(&dashboard, BUTTON_CARD, "Open Thumb Reader Door"); //momentary
+Card thumbreader_card(&dashboard, BUTTON_CARD, "Overide Thumb Reader"); //momentary
+
+/* Status of Masters */
+Card train_status(&dashboard, STATUS_CARD, "Train  Status", "success");
+Card tomb_status(&dashboard, STATUS_CARD, "Tomb Status", "success");
+Card attic_status(&dashboard, STATUS_CARD, "Attic Status", "success");
 
 
 /* ESP-NOW Structures */
@@ -140,6 +145,7 @@ dataPacket rData; // data to recieve
 Tab attic(&dashboard, "Attic");
 Tab tomb(&dashboard, "Ancient Tomb");
 Tab train(&dashboard, "All Aboard");
+Tab status(&dashboard, "Server Status");
 
 /* Timer Cards */
 
@@ -157,18 +163,29 @@ Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
 
 
+//Global Status
+int global_status;
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+
+  if (status == ESP_NOW_SEND_SUCCESS){
+    global_status = 1;
+  }
+  else
+  {
+    global_status = 0;
+  }
 
 }
 
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // memcpy(&rData, incomingData, sizeof(rData));
-  Serial.println("Data Recieved from Somewhere lol.");
-
+  Serial.println("Data Recieved from Somewhere");
+  Serial.print("Data Origin: ");
+  Serial.println(rData.origin);
 
     digitalWrite(2,HIGH);
     asynctimer.setTimeout([]() {
@@ -181,10 +198,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
       digitalWrite(2,LOW);
     }, 1000);
     
-  
-
-  //Incoming Data is copied to rData. Do something with it here or in the main loop.
-  //Incoming Data Goes Here
 
 
 }
@@ -199,117 +212,38 @@ void startespnow(){
     esp_now_register_send_cb(OnDataSent);
     esp_now_register_recv_cb(OnDataRecv);
 
-    /* Register All the Peers*/
+    /* Register All 3 Master Peers*/
 
-      memcpy(peerInfo.peer_addr, m_temp_TEMPLATE, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-
-          memcpy(peerInfo.peer_addr, m_attic_humanchain, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
+    /* Attic */
+    memcpy(peerInfo.peer_addr, m_atticmaster, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
+      Serial.println("Failed to add peer");
+      return;
     }
 
-          memcpy(peerInfo.peer_addr, m_attic_bike, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
+    /* Tomb */
+    memcpy(peerInfo.peer_addr, m_tombmaster, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
+      Serial.println("Failed to add peer");
+      return;
     }
 
-          memcpy(peerInfo.peer_addr, m_attic_grandfatherclock, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
+    /* Train */
 
-          memcpy(peerInfo.peer_addr, m_tomb_sennet, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
+    memcpy(peerInfo.peer_addr, m_trainmaster, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
+      Serial.println("Failed to add peer");
+      return;
     }
-
-          memcpy(peerInfo.peer_addr, m_tomb_chalice, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-
-          memcpy(peerInfo.peer_addr, m_tomb_ringReader, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-
-          memcpy(peerInfo.peer_addr, m_tomb_tangrum, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-              memcpy(peerInfo.peer_addr, m_tomb_maindoorOverride, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-              memcpy(peerInfo.peer_addr, m_tomb_slidedoorOverride, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-
-          memcpy(peerInfo.peer_addr, m_train_keypad, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-          memcpy(peerInfo.peer_addr, m_train_thumb, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-
-          memcpy(peerInfo.peer_addr, m_train_overrideButton, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-
-      memcpy(peerInfo.peer_addr, m_trainmaster, 6); 
-      peerInfo.channel = 0;  
-      peerInfo.encrypt = false;    
-      if (esp_now_add_peer(&peerInfo) != ESP_OK){
-        Serial.println("Failed to add peer");
-        return;
-    }
-
 }
 
 void configDash(){
@@ -337,6 +271,11 @@ void configDash(){
   thumbreader_card.setTab(&train);
   train_time.setTab(&train);
   train_time.setSize(6,6,6,6,6,6);
+
+  train_status.setTab(&status);
+  tomb_status.setTab(&status);
+  attic_status.setTab(&status);
+
 
 
 }
@@ -525,6 +464,45 @@ void startWifi()
 }
 
 
+//This uses a delay() implemenation and may slow down other parts of the code.
+void serverstatus(){
+  sData.data = 0;
+  sData.sensor = 0;
+
+  //Train
+  esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
+  delay(100);
+
+  if (!global_status) {
+    train_status.update("Disconnected", "danger");
+    }
+  else{
+    train_status.update("Connected", "success");
+  }
+
+  esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
+  delay(100);
+  if (!global_status) {
+    tomb_status.update("Disconnected", "danger");
+    }
+  else{
+    tomb_status.update("Connected", "success");
+  }
+
+    esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+   delay(100);
+  if (!global_status) {
+    attic_status.update("Disconnected", "danger");
+    }
+  else{
+    attic_status.update("Connected", "success");
+  }
+  //  global_status = 0;
+
+  dashboard.sendUpdates();
+}
+
+
 void setup() {
   Serial.begin(115200);
   //Signaling LED
@@ -537,14 +515,20 @@ void setup() {
   startButtonCB();
   startespnow();
 
+  //Start Checking Server Status every 5s
+     asynctimer.setInterval([]() {
+      serverstatus();
+    }, 5000);
+
 
 }
 
 
 void loop() {
 
-
-
+  //SERVERSTATUS has a delay of 300ms every 5s.
+  //THIS MAY CAUSE INSTABILITY.
+  //
   asynctimer.handle();
   // dashboard.sendUpdates();
 }
