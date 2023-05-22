@@ -28,7 +28,7 @@
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
-
+#include "encode.h"
 /* ESP-DASH */
 #include <ESPDashPro.h>
 #include <ArduinoJson.h>
@@ -49,57 +49,39 @@
 #include <ESPmDNS.h>
 
 
-/* SET MAC ADDRESS */
-uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
-uint8_t templateaddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xEE}; // Address of Template
 
 #define ADDRESSSLENGTH 11
 
-uint8_t humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
-uint8_t bike[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1};
-uint8_t grandfatherclock[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2};
-uint8_t beetle[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0};
-uint8_t chalicessensor[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB1};
-uint8_t ringreader[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB2};
-uint8_t tangrumtomb[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB3};
-uint8_t thumbreader[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC0};
-uint8_t keypad1[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC1};
-uint8_t keypad2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
-uint8_t relaycontrol[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xD0};
+/* SET MAC ADDRESS */
+uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 
+// Control
+uint8_t m_trainmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
+uint8_t m_tombmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
+uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
 
-// uint8_t sensorAddress[][6] = {
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB1},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB2},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB3},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC0},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC1},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2},
-//     {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xD0}
-// };
+// Attic
+uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
+uint8_t m_attic_bike[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1};
+uint8_t m_attic_grandfatherclock[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2};
+uint8_t m_attic_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA3};
 
-/* Data Naming Convention for Mac Addresses
+// Tomb
+uint8_t m_tomb_sennet[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0};
+uint8_t m_tomb_chalice[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB1};
+uint8_t m_tomb_ringReader[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB2};
+uint8_t m_tomb_tangrum[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB3};
+uint8_t m_tomb_maindoorOverride[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA4};
+uint8_t m_tomb_slidedoorOverride[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA5};
 
-*  0x00 - masterserver
- * 0xA0 - humanchain
- * 0xA1 - bikelight
- * 0xA2 - clockmotor
- * 0xB0 - beetle
- * 0xB1 - chalicessensor
- * 0xB2 - ringreader
- * 0xB3 - tangrumtomb
- * 0xC0 - thumbreader
- * 0xC1 - Keypad 1
- * 0xC2 - Keypad 2
- * 0xD0 - relaycontrol
- * 
- * 0xEE - template
+// Train
+uint8_t m_train_keypad[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC0};
+uint8_t m_train_thumb[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC1};
+uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
 
-*/
+// Template
+uint8_t m_temp_TEMPLATE[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xEE};
+
 
 
 /* ESP Async Timer */
@@ -126,7 +108,7 @@ Card bike_card(&dashboard, BUTTON_CARD, "Bicycle Lightbulb Override"); // not mo
 Card grandfatherclock_card(&dashboard, BUTTON_CARD, "Clock Motor Override"); //momentary
 
 /* Ancient Tomb */
-Card beetle_card(&dashboard, BUTTON_CARD, "Open Beetle Puzle"); //momentary
+Card sennet_card(&dashboard, BUTTON_CARD, "Open Beetle Puzle"); //momentary
 Card chalice_card(&dashboard, BUTTON_CARD, "Open Chalice Door"); //momentary
 Card ringreader_card(&dashboard, BUTTON_CARD, "Override Ring Reader"); //momentary
 Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Tangrum Puzzle Override"); //momentary
@@ -137,12 +119,11 @@ Card thumbreader_card(&dashboard, BUTTON_CARD, "Open Thumb Reader Door"); //mome
 
 
 /* ESP-NOW Structures */
-typedef struct dataPacket {
-int trigger = 0;
-} dataPacket;
 
 dataPacket sData;
 dataPacket sDataprev;
+dataPacket rData; // data to recieve
+
 
 /* Data Order for cardArray and dataPacket
  * 0 - humanchain
@@ -175,8 +156,7 @@ Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
 
-// dataPacket sData; // data to send
-dataPacket rData; // data to recieve
+
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -221,7 +201,7 @@ void startespnow(){
 
     /* Register All the Peers*/
 
-      memcpy(peerInfo.peer_addr, templateaddress, 6); 
+      memcpy(peerInfo.peer_addr, m_temp_TEMPLATE, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -229,7 +209,7 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, humanchain, 6); 
+          memcpy(peerInfo.peer_addr, m_attic_humanchain, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -237,7 +217,7 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, bike, 6); 
+          memcpy(peerInfo.peer_addr, m_attic_bike, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -245,7 +225,7 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, grandfatherclock, 6); 
+          memcpy(peerInfo.peer_addr, m_attic_grandfatherclock, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -253,7 +233,7 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, beetle, 6); 
+          memcpy(peerInfo.peer_addr, m_tomb_sennet, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -261,7 +241,7 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, chalicessensor, 6); 
+          memcpy(peerInfo.peer_addr, m_tomb_chalice, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -269,7 +249,7 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, ringreader, 6); 
+          memcpy(peerInfo.peer_addr, m_tomb_ringReader, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -277,21 +257,21 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, tangrumtomb, 6); 
+          memcpy(peerInfo.peer_addr, m_tomb_tangrum, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
         Serial.println("Failed to add peer");
         return;
     }
-          memcpy(peerInfo.peer_addr, thumbreader, 6); 
+              memcpy(peerInfo.peer_addr, m_tomb_maindoorOverride, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
         Serial.println("Failed to add peer");
         return;
     }
-          memcpy(peerInfo.peer_addr, keypad1, 6); 
+              memcpy(peerInfo.peer_addr, m_tomb_slidedoorOverride, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
@@ -299,19 +279,35 @@ void startespnow(){
         return;
     }
 
-          memcpy(peerInfo.peer_addr, keypad2, 6); 
+          memcpy(peerInfo.peer_addr, m_train_keypad, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
         Serial.println("Failed to add peer");
         return;
     }
-          memcpy(peerInfo.peer_addr, relaycontrol, 6); 
+          memcpy(peerInfo.peer_addr, m_train_thumb, 6); 
       peerInfo.channel = 0;  
       peerInfo.encrypt = false;    
       if (esp_now_add_peer(&peerInfo) != ESP_OK){
-      Serial.println("Failed to add peer");
-      return;
+        Serial.println("Failed to add peer");
+        return;
+    }
+
+          memcpy(peerInfo.peer_addr, m_train_overrideButton, 6); 
+      peerInfo.channel = 0;  
+      peerInfo.encrypt = false;    
+      if (esp_now_add_peer(&peerInfo) != ESP_OK){
+        Serial.println("Failed to add peer");
+        return;
+    }
+
+      memcpy(peerInfo.peer_addr, m_trainmaster, 6); 
+      peerInfo.channel = 0;  
+      peerInfo.encrypt = false;    
+      if (esp_now_add_peer(&peerInfo) != ESP_OK){
+        Serial.println("Failed to add peer");
+        return;
     }
 
 }
@@ -322,6 +318,7 @@ void configDash(){
   // dashboard.setAuthentication("admin", "1234"); // Authentication
   dashboard.setTitle("Escape Room Master Control");
 
+  sData.origin = 0x00;
   /* Attic */
   humanchain_card.setTab(&attic);
   bike_card.setTab(&attic);
@@ -330,7 +327,7 @@ void configDash(){
   attic_time.setSize(6,6,6,6,6,6);
 
   /* Tomb */
-  beetle_card.setTab(&tomb);
+  sennet_card.setTab(&tomb);
   chalice_card.setTab(&tomb);
   ringreader_card.setTab(&tomb);
   tangrumtomb_card.setTab(&tomb);
@@ -360,41 +357,42 @@ void buttonTimeout(Card* cardptr, int timeout = 3000){
 void startButtonCB(){
 
 
-  /* TEST CALLBACK FUNCTION FOR BLUE LED BUTTON*/
-  testnetwork.attachCallback([](int value){
-  testnetwork.update(value);
-  Serial.printf("TEST BUTTON TRIGGERED: %d\n");
-  sData.trigger=value;
+  // /* TEST CALLBACK FUNCTION FOR BLUE LED BUTTON*/
+  // testnetwork.attachCallback([](int value){
+  // testnetwork.update(value);
+  // Serial.printf("TEST BUTTON TRIGGERED: %d\n");
+  // sData.data=value;
 
-  esp_err_t result = esp_now_send(templateaddress, (uint8_t *) &sData, sizeof(sData));
+  // esp_err_t result = esp_now_send(temp_TEMPLATE, (uint8_t *) &sData, sizeof(sData));
   
-  if (result == ESP_OK) { Serial.println("Sent with success");}
-  else {Serial.println("Error sending the data");}
+  // if (result == ESP_OK) { Serial.println("Sent with success");}
+  // else {Serial.println("Error sending the data");}
   
-  dashboard.sendUpdates();
-  });
+  // dashboard.sendUpdates();
+  // });
 
 
-  /* 0 - HumanChainDoor */
-  humanchain_card.attachCallback([](int value){
-  // humanchain_card.update(1);
-  buttonTimeout(&humanchain_card);
-  Serial.printf("Attic Door Triggered\n");
-  sData.trigger = 4;
-  esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
-  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-  sData.trigger = 0;
-    
-  });
+/* 0 - HumanChainDoor */
+humanchain_card.attachCallback([](int value){
+// humanchain_card.update(1);
+buttonTimeout(&humanchain_card);
+Serial.printf("Attic Door Triggered\n");
+sData.sensor = attic_humanchain; 
+sData.data = 1;
+esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+sData.data = 0;
+  
+});
 
-/* 0xA1 - bikelight */
+/* 0xA1 - bikelight - THIS PUZZLE IS NOT MOMENTARY */
 bike_card.attachCallback([](int value){
 bike_card.update(value);
-Serial.printf("Bike Light Triggered\n");
-sData.trigger = value;
-esp_err_t result = esp_now_send(bike, (uint8_t *) &sData, sizeof(sData));
+Serial.printf("Bike Light Enabled\n");
+sData.data = value;
+esp_err_t result = esp_now_send(m_attic_bike, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
+sData.data = 0;
 dashboard.sendUpdates();
 });
 
@@ -402,21 +400,23 @@ dashboard.sendUpdates();
 grandfatherclock_card.attachCallback([](int value){
 buttonTimeout(&grandfatherclock_card);
 Serial.printf("Grandfather Clock Triggered\n");
-sData.trigger = 1;
-esp_err_t result = esp_now_send(grandfatherclock, (uint8_t *) &sData, sizeof(sData));
+sData.sensor = attic_grandfatherclock; 
+sData.data = 1;
+esp_err_t result = esp_now_send(m_attic_grandfatherclock, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
+sData.data = 0;
 
 });
 
-/* 0xB0 - beetle */
-beetle_card.attachCallback([](int value){
-buttonTimeout(&beetle_card);
-Serial.printf("Beetle Triggered\n");
-sData.trigger = 1;
-esp_err_t result = esp_now_send(beetle, (uint8_t *) &sData, sizeof(sData));
+/* 0xB0 - sennet table */
+sennet_card.attachCallback([](int value){
+buttonTimeout(&sennet_card);
+Serial.printf("Sennet Table Triggered\n");
+sData.sensor = tomb_sennet; 
+sData.data = 1;
+esp_err_t result = esp_now_send(m_tomb_sennet, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
+sData.data = 0;
 
 });
 
@@ -424,10 +424,11 @@ sData.trigger = 0;
 chalice_card.attachCallback([](int value){
 buttonTimeout(&chalice_card);
 Serial.printf("Chalice Sensor Triggered\n");
-sData.trigger = 2;
-esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
+sData.sensor = tomb_chalice; 
+sData.data = 1;
+esp_err_t result = esp_now_send(m_tomb_chalice, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
+sData.data = 0;
 
 });
 
@@ -435,10 +436,11 @@ sData.trigger = 0;
 ringreader_card.attachCallback([](int value){
 buttonTimeout(&ringreader_card);
 Serial.printf("Ring Reader Triggered\n");
-sData.trigger = 1;
-esp_err_t result = esp_now_send(ringreader, (uint8_t *) &sData, sizeof(sData));
+sData.sensor = tomb_ringReader; 
+sData.data = 1;
+esp_err_t result = esp_now_send(m_tomb_ringReader, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
+sData.data = 0;
 
 });
 
@@ -446,35 +448,39 @@ sData.trigger = 0;
 tangrumtomb_card.attachCallback([](int value){
 buttonTimeout(&tangrumtomb_card);
 Serial.printf("Tangram Tomb Triggered\n");
-sData.trigger = 3;
-esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
+sData.sensor = tomb_tangrum; 
+sData.data = 1;
+esp_err_t result = esp_now_send(m_tomb_tangrum, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.trigger = 0;
+sData.data = 0;
 
 });
-
-/* 0xC0 - thumbreader */
-thumbreader_card.attachCallback([](int value){
-buttonTimeout(&thumbreader_card);
-  Serial.printf("Thumbreader Triggered\n");
-  sData.trigger = 1;
-  esp_err_t result = esp_now_send(thumbreader, (uint8_t *) &sData, sizeof(sData));
-  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-  sData.trigger = 0;
-  
-
-});
-
-/* 0xC1 and 0xC2 - Train Room */
+/* 0xC0 - Train Room */
   trainroomdoor_card.attachCallback([](int value){
   buttonTimeout(&trainroomdoor_card);
   Serial.printf("Train Room Triggered\n");
-  sData.trigger = 1;
-  esp_err_t result = esp_now_send(relaycontrol, (uint8_t *) &sData, sizeof(sData));
+sData.sensor = train_keypad; 
+sData.data = 1;
+  esp_err_t result = esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
   if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-  sData.trigger = 0;
+  sData.data = 0;
   
 });
+
+
+/* 0xC1 - thumbreader */
+thumbreader_card.attachCallback([](int value){
+buttonTimeout(&thumbreader_card);
+  Serial.printf("Thumbreader Triggered\n");
+sData.sensor = train_thumb; 
+sData.data = 1;
+  esp_err_t result = esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
+  if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+  sData.data = 0;
+
+});
+
+
 
 
 }
@@ -497,7 +503,8 @@ void startWifi()
   {
     Serial.printf("WiFi Failed!\n");
     return;
-  }
+  }else
+  {Serial.println("\n\nWIFI CONNECTED!");}
 
   if (!MDNS.begin("escape"))
   {

@@ -22,13 +22,14 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "keypad2"
-#define MACAD 0xC2 // Refer to Table in Conventions
+#define NAME "keypad"
+#define MACAD 0xC0 // Manually Refer to Table in Conventions
 
 
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
+#include <encode.h>
 
 /* ESP-DASH */
 #include <ArduinoJson.h>
@@ -64,7 +65,7 @@ byte colPins[COLS] = {18, 21, 17};   // connect to the column pinouts of the key
 Adafruit_Keypad customKeypad = Adafruit_Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
 // REPLACE WITH THE MAC Address of your receiver
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01}; // Address of Room Master
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 /* ESP Async Timer */
@@ -75,10 +76,6 @@ const char *ssid = WIFI_SSID;     // SSID
 const char *password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
-typedef struct dataPacket
-{
-  int trigger = 0;
-} dataPacket;
 
 dataPacket sData; // data to send
 dataPacket rData; // data to recieve
@@ -103,14 +100,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
-  memcpy(&rData, incomingData, sizeof(rData));
-  Serial.println("Override Data Recieved...");
-  for (int i=0;i<8;i++){
-    digitalWrite(2,HIGH);
-    delay(75);
-    digitalWrite(2,LOW);
-    delay(75);
-  }
+  //Does not Require Override.
 }
 
 /*Keypad Password */
@@ -184,6 +174,18 @@ void startespnow()
   }
 }
 
+
+void sendData()
+{
+  sData.origin = train_keypad;
+  sData.sensor = train_keypad;
+  sData.data = 1;
+
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+      if (result == ESP_OK) { Serial.println("Sent with success");}
+      else {Serial.println("Error sending the data");}
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -196,16 +198,13 @@ void setup()
   digitalWrite(2, LOW);
 
   customKeypad.begin(); // Startup for Keypad
+
+  // asynctimer.setInterval([]() {
+  //     sendData();
+  //   }, 3000);
 }
 
 
-void sendData()
-{
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-      if (result == ESP_OK) { Serial.println("Sent with success");}
-      else {Serial.println("Error sending the data");}
-
-}
 
 void loop()
 {
