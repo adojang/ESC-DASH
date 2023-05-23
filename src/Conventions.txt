@@ -1,27 +1,29 @@
 /* Data Naming Convention for Mac Addresses
 
 *  0x00 - masterserver
+*  0x01 - trainmaster
+*  0x02 - tombmaster
+*  0x03 - atticmaster
 
 
  * 0xA0 - humanchain
  * 0xA1 - bike
  * 0xA2 - grandfatherclock
- * 0xA3 - bike light (reserved)
+ * 0xA3 - attic_overrideButton (??? Not sure where to connect)
 
- * 0xB0 - beetle
- * 0xB1 - chalicessensor
+ * 0xB0 - sennet
+ * 0xB1 - chalice
  * 0xB2 - ringreader
- * 0xB3 - tangrumtomb
+ * 0xB3 - tangrum
+ * 0xB4 - tomb_maindoorOverride
+ * 0xB5 - tomb_maindoorOverride
 
- * 0xC0 - thumbreader
- * 0xC1 - Keypad 1
- * 0xC2 - Keypad 2
 
- * 0xD0 - trainmaster
- * 0xD1 - atticmaster
- * 0xD2 - tombmaster
+ * 0xC0 - Keypad 1 (Same Address for Keypad 1 and 2)
+ * 0xC1 - thumbreader
+ * 0xC2 - tomb_maindoorOverride
 
- * 0xEE - template
+
 
 */
 

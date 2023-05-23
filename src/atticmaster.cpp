@@ -23,12 +23,13 @@
 */
 
 #define NAME "atticmaster"
-#define MACAD 0xD1 // Refer to Table in Conventions
+#define MACAD 0x03 // Refer to Table in Conventions
 
 
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
+#include <encode.h>
 
 /* ESP-DASH */
 #include <ArduinoJson.h>
@@ -45,6 +46,9 @@
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
 
+
+
+
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
@@ -58,22 +62,49 @@ const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
-typedef struct dataPacket {
-int trigger = 0;
-} dataPacket;
 
-dataPacket sData; // data to send
-dataPacket rData; // data to recieve
+
+
+
+
+
+ dataPacket sData; // data to send
+ dataPacket rData; // data to recieve
 
 /* Setup */
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 String success;
 
-bool opendoor1 = false;
-bool opendoor2 = false;
-bool opendoor3 = false;
-bool opendoor4 = false;
+// bool opendoor1 = false;
+// bool opendoor2 = false;
+// bool opendoor3 = false;
+// bool opendoor4 = false;
+
+//Fast Flash to show SENT Data Succesfully
+void sendDataLED(){
+  // If it works... it works...
+  digitalWrite(2,HIGH);
+  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  200);
+  asynctimer.setTimeout([]() {digitalWrite(2,HIGH);},  400);
+  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  600);
+}
+
+
+
+void triggerDoor(int pin, int timeout){
+  digitalWrite(pin, LOW);
+  Serial.println("Door Opened");
+  asynctimer.setTimeout([pin]() {
+      digitalWrite(pin, HIGH);
+      Serial.println("Door Closed");
+    }, 5000);
+  
+  
+  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+
+}
+
 
 
 /* ESP-NOW Callback Functions*/
@@ -84,23 +115,44 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
-  Serial.println("Override Data Recieved...");
-  Serial.println(rData.trigger);
-  if (rData.trigger == 1) opendoor1 = true;
-  if (rData.trigger == 2) opendoor2 = true;
-  if (rData.trigger == 3) opendoor3 = true;
-  if (rData.trigger == 4) opendoor4 = true;
+
+  Serial.println("Data Recieved...");
+  
+  
+  // Forward Data from Sensors to Master Server
+  if (rData.origin != masterserver){
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  if (result == ESP_OK) {sendDataLED();}}
+
+
+  // if((rData.sensor == train_keypad) && (rData.data == 1)){
+  //   Serial.println("Train Door Triggered :)");
+  //   Serial.print("Origin: ");
+  //   Serial.println(rData.origin);
+    
+  //    triggerDoor(door1, doortime);
+  // }
+
+
+
+
+
+
+
 
   // Add your code here to do something with the data recieved
 
-
 }
+
+
+
  
 
 void startwifi(){
 
   // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+  WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
 
   WiFi.begin(ssid, password);
@@ -157,21 +209,12 @@ void startespnow(){
 
 }
 
-void atticlightblink(){
-
-
-
-}
-
 void setup() {
   Serial.begin(115200);
   startwifi();
   startespnow();
 
-  //PWM
-  pinMode(25, OUTPUT); //GND
-  // pinMode(26, OUTPUT); // PWM
-  digitalWrite(25,LOW);
+
   pinMode(5, OUTPUT);
   pinMode(18, OUTPUT);
   pinMode(19, OUTPUT);
@@ -184,44 +227,16 @@ void setup() {
   delay(250);
   digitalWrite(21, HIGH);
 
-Serial.println("ALL THINGS ARE HIGH");
 
   }
 
 
-void triggerDoor(int pin, int timeout){
-  digitalWrite(pin, LOW);
-  Serial.println("Door Opened");
-  delay(timeout);
-  digitalWrite(pin, HIGH);
-  Serial.println("Door Closed");
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
 
-}
 
 void loop() {
 
   //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
 
-  if (opendoor1 == true) {
-    triggerDoor(5,2000);
-    opendoor1 = false;
-  }
-
-  if (opendoor2 == true) {
-    triggerDoor(18,2000);
-    opendoor2 = false;
-  }
-
-  if (opendoor3 == true) {
-    triggerDoor(19,2000);
-    opendoor3 = false;
-  }
-
-  if (opendoor4 == true) {
-    triggerDoor(21,2000);
-    opendoor4 = false;
-  }
 
 
   asynctimer.handle();
