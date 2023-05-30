@@ -244,21 +244,21 @@ void setup() {
   startup(); // Startup for Wifi, mDNS, and OTA
   startespnow(); // Startup for ESP-NOW
   pinMode(Onboard_LED,OUTPUT); //Onboard LED pin configuration
-  pinMode(ReedSwitchPin_1, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_2, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_3, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_4, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_5, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_6, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_7, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_8, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_9, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_10, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_11, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_12, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_13, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_14, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
-  pinMode(ReedSwitchPin_15, INPUT_PULLDOWN);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_1, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_2, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_3, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_4, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_5, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_6, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_7, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_8, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_9, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_10, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_11, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_12, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_13, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_14, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
+  pinMode(ReedSwitchPin_15, INPUT);  //Use Pull-Down resistor configuration with GPIO pin as digital input
   //Begin Sending Data to Remote ESP's every 250ms
    asynctimer.setInterval([]() { esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  250);
 
