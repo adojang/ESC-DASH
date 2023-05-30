@@ -1,0 +1,85 @@
+typedef struct dataPacket
+{
+  int trigger = 0;
+} dataPacket;
+
+
+Every Message that the MASTER of a room 
+recieves will be relayed to the servermaster
+
+
+/**** Train Room ****/
+Master:
+90  - Open Relay 1 - Room Door (Emergency)
+91 - Open Relay 1 - Room Door (Keypad)
+
+Entrance Emergency Escape Button x 2
+0 - Door Closed / not triggered
+90 - Triggered, 30s timeout (SEND ONLY)
+
+Keypad (Both)
+0 - Door Closed / not triggered
+91- Door Open / triggered 30s
+
+Fingerprint
+10 - Door Closed / not triggered
+11 - Internal Lock Open 2s
+
+
+/**** Tomb ****/
+Master
+
+90 - Open Relay 1 - Main Room Door
+91 - Open Relay 2 - Sliding Door
+92 - Open Relay 3 - Tomb Lock
+100 - Reset Wall Puzzle (Send 0)
+101 - Reset Tomb Relay
+
+
+Entrance Emergency Escape Button x 2
+0 - Untriggered
+90 - Triggered, 30s timeout (SEND ONLY)
+
+Sliding Door Escape Button x1
+0 - Untriggered
+91 - Triggered, 30s timeout (SEND ONLY)
+
+Wall Puzzle (solid state switch)
+0 - Hidden
+1 - Revealed
+
+Chalice RFID
+10- Untriggered
+11 - Chalice Detected 30s timeout
+
+Sennet Table
+20- Untriggered
+21 - Internal Lock Open 2s
+
+Tangrum Puzzle
+40- Nothing in Place
+92- Open Tomb Command
+
+
+
+/**** The Attic ****/
+Master
+Morse Code (Always On) - controlled via physical switch
+90 - Open Relay 1 - Main Room Door
+91 - Open Relay 2 - Human Chain Door (Emergency)
+92 Open Relay 2 - Human Chain Door
+100 - Reset Wall Puzzle 
+
+Entrance Emergency Escape Button x 2
+0 - Untriggered
+91 - Triggered, 30s timeout (SEND ONLY)
+
+Human Chain Puzzle (Each RFID)
+0 - Not all pieces in place
+91 - All pieces in place
+
+
+
+Clock
+0 - Hands not in place
+1 - Hands in place move internal motor

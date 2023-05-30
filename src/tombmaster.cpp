@@ -23,7 +23,7 @@
 */
 
 #define NAME "thumbreader"
-#define MACAD 0xC1 // Refer to Table in Conventions
+#define MACAD 0xC0 // Refer to Table in Conventions
 
 
 /* Kernal*/
@@ -116,16 +116,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
-
-
   Serial.println("Data Recieved...");
-  //This sensor does not recieve data (except perhaps to ping the master server later on)
   
   
   // Forward Data from Sensors to Master Server
-  // if (rData.origin != masterserver){
-  //       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-  // if (result == ESP_OK) {sendDataLED();}}
+  if (rData.origin != masterserver){
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  if (result == ESP_OK) {sendDataLED();}}
 
 
   // if((rData.sensor == train_keypad) && (rData.data == 1)){
@@ -216,7 +213,6 @@ void setup() {
   Serial.begin(115200);
   startwifi();
   startespnow();
-
 
   pinMode(5, OUTPUT);
   pinMode(18, OUTPUT);
