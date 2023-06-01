@@ -26,6 +26,7 @@
 #define MACAD 0xC1 // Refer to Table in Conventions
 
 
+
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
@@ -116,16 +117,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
-
-
   Serial.println("Data Recieved...");
-  //This sensor does not recieve data (except perhaps to ping the master server later on)
   
   
   // Forward Data from Sensors to Master Server
-  // if (rData.origin != masterserver){
-  //       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-  // if (result == ESP_OK) {sendDataLED();}}
+  if (rData.origin != masterserver){
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  if (result == ESP_OK) {sendDataLED();}}
 
 
   // if((rData.sensor == train_keypad) && (rData.data == 1)){
@@ -165,6 +163,7 @@ void startwifi(){
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
       Serial.printf("WiFi Failed!\n");
+      ESP.restart();
       return;
   }
   else{
@@ -212,12 +211,14 @@ void startespnow(){
 
 }
 
+
+int val = 0;
 void setup() {
   Serial.begin(115200);
   startwifi();
   startespnow();
 
-
+  pinMode(2, OUTPUT);
   pinMode(5, OUTPUT);
   pinMode(18, OUTPUT);
   pinMode(19, OUTPUT);
@@ -231,6 +232,26 @@ void setup() {
   digitalWrite(21, HIGH);
 
 
+  // LIGHT TEST
+
+  ledcSetup(0, 300, 12); // Lightbulb
+  ledcSetup(1, 300, 12); // Bike LED
+  ledcAttachPin(27, 0); // Lightbulb
+  ledcAttachPin(26, 1);
+  ledcWrite(0, 0);
+  ledcWrite(1, 0);
+
+  analogReadResolution(12);
+  //GND Pin for PWM Controller for Fan
+  pinMode(33, OUTPUT);
+  digitalWrite(33, LOW);
+    pinMode(25, OUTPUT);
+  digitalWrite(25, LOW);
+
+
+  //    asynctimer.setInterval([]() {
+  //     morseloop();
+  //   }, normalDelay*24);
   }
 
 
@@ -240,6 +261,10 @@ void loop() {
 
   //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
 
+  val = hallRead();
+  // print the results to the serial monitor
+  Serial.println(val); 
+  delay(500);
 
 
   asynctimer.handle();

@@ -72,7 +72,7 @@ uint8_t m_tomb_chalice[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB1};
 uint8_t m_tomb_ringReader[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB2};
 uint8_t m_tomb_tangrum[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB3};
 uint8_t m_tomb_maindoorOverride[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB4};
-uint8_t m_tomb_maindoorOverride[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB5};
+uint8_t m_tomb_slidedoorOverride[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB5};
 
 // Train
 uint8_t m_train_keypad[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC0};
@@ -117,11 +117,6 @@ Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Open Tomb"); //momentary
 Card trainroomdoor_card(&dashboard, BUTTON_CARD, "Open Train Room Door"); //momentary
 Card thumbreader_card(&dashboard, BUTTON_CARD, "Overide Thumb Reader"); //momentary
 
-/* Status of Masters */
-Card train_status(&dashboard, STATUS_CARD, "Train  Status", "success");
-Card tomb_status(&dashboard, STATUS_CARD, "Tomb Status", "success");
-Card attic_status(&dashboard, STATUS_CARD, "Attic Status", "success");
-
 
 /* ESP-NOW Structures */
 
@@ -145,21 +140,20 @@ dataPacket rData; // data to recieve
 Tab attic(&dashboard, "Attic");
 Tab tomb(&dashboard, "Ancient Tomb");
 Tab train(&dashboard, "All Aboard");
-Tab status(&dashboard, "Server Status");
-
-/* Timer Cards */
 
 /* Overview Timer Cards */
-Card overview_status(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card overview_attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card testnetwork(&dashboard, BUTTON_CARD, "TEST CONNECTION"); //momentary
-Card overview_tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card overview_train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+// Card testnetwork(&dashboard, BUTTON_CARD, "TEST CONNECTION"); //momentary
+
+    /* Status of Masters */
+Card train_status(&dashboard, STATUS_CARD, "Train  Status", "success");
+Card tomb_status(&dashboard, STATUS_CARD, "Tomb Status", "success");
+Card attic_status(&dashboard, STATUS_CARD, "Attic Status", "success");
+
 
 /* Contained inside tabs*/
-Card attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
-Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+// Card attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+// Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
+// Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
 
 
@@ -180,12 +174,33 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 }
 
+unsigned short attictimeout = 999;
+unsigned short traintimeout = 999;
+unsigned short tombtimout = 999;
+
+
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Data Recieved from Somewhere");
   Serial.print("Data Origin: ");
   Serial.println(rData.origin);
+
+  //Status Check for Main Control Room Sensors
+  if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 0)
+  {
+    asynctimer.cancel(attictimeout);
+    attic_status.update("Connected", "success");
+    dashboard.sendUpdates();
+    // This timeout will never run
+    attictimeout = asynctimer.setTimeout([]() {
+  attic_status.update("Disconnected", "danger");
+  dashboard.sendUpdates();
+}, 5000);
+
+//After 5 seconds where this isn't called
+
+  }
 
     digitalWrite(2,HIGH);
     asynctimer.setTimeout([]() {
@@ -253,28 +268,40 @@ void configDash(){
   dashboard.setTitle("Escape Room Master Control");
 
   sData.origin = 0x00;
+
+  /* Overview */
+
+    attic_status.setSize(6,6,6,6,6,6);
+    train_status.setSize(6,6,6,6,6,6);
+    tomb_status.setSize(6,6,6,6,6,6);
+  /* Status of Masters */
+
+
+
   /* Attic */
   humanchain_card.setTab(&attic);
   bike_card.setTab(&attic);
   grandfatherclock_card.setTab(&attic);
-  attic_time.setTab(&attic);
-  attic_time.setSize(6,6,6,6,6,6);
+  humanchain_card.setSize(6,6,6,6,6,6);
+  bike_card.setSize(6,6,6,6,6,6);
+  grandfatherclock_card.setSize(6,6,6,6,6,6);
+
 
   /* Tomb */
   sennet_card.setTab(&tomb);
   chalice_card.setTab(&tomb);
   ringreader_card.setTab(&tomb);
   tangrumtomb_card.setTab(&tomb);
-  tomb_time.setTab(&tomb);
-  tomb_time.setSize(6,6,6,6,6,6);
+  sennet_card.setSize(6,6,6,6,6,6);
+  chalice_card.setSize(6,6,6,6,6,6);
+  tangrumtomb_card.setSize(6,6,6,6,6,6);
+  ringreader_card.setSize(6,6,6,6,6,6);
   /* Train */
   thumbreader_card.setTab(&train);
-  train_time.setTab(&train);
-  train_time.setSize(6,6,6,6,6,6);
+  trainroomdoor_card.setTab(&train);
+  thumbreader_card.setSize(6,6,6,6,6,6);
+  trainroomdoor_card.setSize(6,6,6,6,6,6);
 
-  train_status.setTab(&status);
-  tomb_status.setTab(&status);
-  attic_status.setTab(&status);
 
 
 
@@ -516,9 +543,9 @@ void setup() {
   startespnow();
 
   //Start Checking Server Status every 5s
-     asynctimer.setInterval([]() {
-      serverstatus();
-    }, 5000);
+    //  asynctimer.setInterval([]() {
+    //   serverstatus();
+    // }, 5000);
 
 
 }
@@ -526,9 +553,9 @@ void setup() {
 
 void loop() {
 
-  //SERVERSTATUS has a delay of 300ms every 5s.
-  //THIS MAY CAUSE INSTABILITY.
-  //
+
+
+
   asynctimer.handle();
   // dashboard.sendUpdates();
 }

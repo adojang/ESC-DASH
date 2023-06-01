@@ -62,12 +62,6 @@ const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
-
-
-
-
-
-
  dataPacket sData; // data to send
  dataPacket rData; // data to recieve
 
@@ -76,20 +70,13 @@ AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 String success;
 
-// bool opendoor1 = false;
-// bool opendoor2 = false;
-// bool opendoor3 = false;
-// bool opendoor4 = false;
-
-//Fast Flash to show SENT Data Succesfully
-void sendDataLED(){
-  // If it works... it works...
-  digitalWrite(2,HIGH);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  200);
-  asynctimer.setTimeout([]() {digitalWrite(2,HIGH);},  400);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  600);
+//This Sends Data to the MasterServer to tell it its still connected
+void statusAlive(){
+  sData.origin = trainmaster;
+  sData.sensor = trainmaster;
+  sData.data = 0;
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
 }
-
 
 
 void triggerDoor(int pin, int timeout){
@@ -99,10 +86,6 @@ void triggerDoor(int pin, int timeout){
       digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
     }, 5000);
-  
-  
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-
 }
 
 
@@ -122,7 +105,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // Forward Data from Sensors to Master Server
   if (rData.origin != masterserver){
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-  if (result == ESP_OK) {sendDataLED();}}
+  }
 
 
   if((rData.sensor == train_keypad) && (rData.data == 1)){
@@ -132,21 +115,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     
      triggerDoor(door1, doortime);
   }
-
-
-
-
-
-
-
-
-  // Add your code here to do something with the data recieved
-
 }
 
-
-
- 
 
 void startwifi(){
 
@@ -162,6 +132,7 @@ void startwifi(){
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
       Serial.printf("WiFi Failed!\n");
+      ESP.restart();
       return;
   }
   else{
@@ -214,6 +185,9 @@ void setup() {
   startwifi();
   startespnow();
 
+  pinMode(16, OUTPUT); // emergency Button GND
+  digitalWrite(16, HIGH);
+  pinMode(17, INPUT_PULLDOWN); // emergency Button
 
   pinMode(5, OUTPUT);
   pinMode(18, OUTPUT);
@@ -228,15 +202,26 @@ void setup() {
   digitalWrite(21, HIGH);
 
 
+     asynctimer.setInterval([]() {
+      statusAlive();
+      ;},  1000);
+
   }
-
-
 
 
 void loop() {
 
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-
+//Emergency Escape Button
+if(digitalRead(17))
+{
+  sData.origin = 0x01;
+  sData.sensor = 0xC2;
+  sData.data = 1;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+  
+  if (result == ESP_OK) { Serial.println("Sent with success");}
+  else {Serial.println("Error sending the data");}
+}
 
 
   asynctimer.handle();

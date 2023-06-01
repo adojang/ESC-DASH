@@ -22,8 +22,33 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "atticmaster"
-#define MACAD 0x03 // Refer to Table in Conventions
+
+#define NAME "bikelight"
+#define MACAD 0xA1 // Refer to Table Below
+#define INTERNAL_LED 2
+#define SWITCH_PIN 15 
+#define ARRAY_LENGTH 3
+
+int previousState;
+int currentState;
+bool measureTime;
+int val = 0;
+float dt = 0;
+float t = 0;
+float freq = 0;
+unsigned long switchTime = 0;
+unsigned long decayTime1 = 0;
+unsigned long decayTime2 = 0;
+unsigned long transmitTime = 0;
+
+int i = 0;
+float dtMeasurements[ARRAY_LENGTH] = {10000, 10000, 10000};
+int measurementIndex = 0;
+float dtAvg = 0;
+float freqAvg = 0;
+float freqNorm = 0;
+float output = 0;
+
 
 
 /* Kernal*/
@@ -62,6 +87,12 @@ const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
+
+
+
+
+
+
  dataPacket sData; // data to send
  dataPacket rData; // data to recieve
 
@@ -70,13 +101,20 @@ AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 String success;
 
-//This Sends Data to the MasterServer to tell it its still connected
-void statusAlive(){
-  sData.origin = atticmaster;
-  sData.sensor = atticmaster;
-  sData.data = 0;
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+// bool opendoor1 = false;
+// bool opendoor2 = false;
+// bool opendoor3 = false;
+// bool opendoor4 = false;
+
+//Fast Flash to show SENT Data Succesfully
+void sendDataLED(){
+  // If it works... it works...
+  digitalWrite(2,HIGH);
+  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  200);
+  asynctimer.setTimeout([]() {digitalWrite(2,HIGH);},  400);
+  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  600);
 }
+
 
 
 void triggerDoor(int pin, int timeout){
@@ -109,7 +147,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // Forward Data from Sensors to Master Server
   if (rData.origin != masterserver){
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-  }
+  if (result == ESP_OK) {sendDataLED();}}
+
 
   // if((rData.sensor == train_keypad) && (rData.data == 1)){
   //   Serial.println("Train Door Triggered :)");
@@ -217,28 +256,53 @@ void longlight(){
 
 }
 
-void morseloop(){
-//Spell ESC 
+// Function to calculate the average of an array excluding the outlier value
+float calculateAverage() {
+    float sum = 0;
+    int count = 0;
+    for (int i = 0; i < ARRAY_LENGTH; i++) {
+      if (dtMeasurements[i]>100) {
+          sum += dtMeasurements[i];
+          count++;
+      }
+    }
+    return sum / count;
+}
 
-//E - 3 delay units
-shortlight();
-delay(normalDelay);
-//S - 7 delay units
-shortlight();
-shortlight();
-shortlight();
-delay(normalDelay);
-//C - 12 delay units
-longlight();
-shortlight();
-longlight();
-shortlight();
-delay(longDelay);
-delay(longDelay);
-//total 24 delay units
+// Function to take a measurement and update the array
+void updateMeasurements(float measurement) {
+    // Add the new measurement to the array
+    dtMeasurements[measurementIndex] = measurement;
+
+    // Update the index of the next measurement, wrapping around if necessary
+    measurementIndex = (measurementIndex + 1) % ARRAY_LENGTH;
+}
+
+void printArray(float* array, int length) {
+    for (int i = 0; i < length; i++) {
+        printf("%.2f ", array[i]);
+    }
+    printf("\n");
+}
+
+// Normalises output to (0,1), assuming the highest possible cadence is 2Hz.
+float normalise(float output) {
+    if (output>2) {
+        output=2;
+    }
+    output = output/2;
+    return output;
 }
 
 
+ void sendLightData(){
+
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+  
+  if (result == ESP_OK) { Serial.println("Sent Data success");}
+  else {Serial.println("Error sending the data");}
+
+ }
 
 
 void setup() {
@@ -246,66 +310,94 @@ void setup() {
   startwifi();
   startespnow();
 
-  pinMode(16, OUTPUT); // emergency Button GND
-  digitalWrite(16, HIGH);
-  pinMode(17, INPUT_PULLDOWN); // emergency Button
 
-  pinMode(5, OUTPUT);
-  pinMode(18, OUTPUT);
-  pinMode(19, OUTPUT);
-  pinMode(21, OUTPUT);
-  digitalWrite(5, HIGH);
-  delay(250);
-  digitalWrite(18, HIGH);
-  delay(250);
-  digitalWrite(19, HIGH);
-  delay(250);
-  digitalWrite(21, HIGH);
+    pinMode(INTERNAL_LED, OUTPUT);
+    pinMode(SWITCH_PIN, INPUT_PULLDOWN);
 
 
-  // LIGHT TEST
+    currentState = digitalRead(SWITCH_PIN);
+    previousState = currentState;
+    t = millis();
+    measureTime = false;
+    transmitTime = millis();
 
-  ledcSetup(0, 300, 12); // Lightbulb
-  ledcSetup(1, 300, 12); // Bike LED
-  ledcAttachPin(27, 0); // Lightbulb
-  ledcAttachPin(26, 1);
-  ledcWrite(0, 0);
-  ledcWrite(1, 0);
+    sData.origin = attic_bike;
+    sData.sensor = attic_bike;
 
-  analogReadResolution(12);
-  //GND Pin for PWM Controller for Fan
-  pinMode(33, OUTPUT);
-  digitalWrite(33, LOW);
-    pinMode(25, OUTPUT);
-  digitalWrite(25, LOW);
-
-
-     asynctimer.setInterval([]() {
-      statusAlive();
-      ;},  1000);
-
-
-     asynctimer.setInterval([]() {
-      morseloop();
-    }, normalDelay*24);
+        asynctimer.setInterval([]() {
+      sendLightData();
+    }, 250);
   }
 
 
 
 
+
+
+
+
+
 void loop() {
-//Emergency Escape Button
-if(digitalRead(17))
-{
-  sData.origin = 0x03;
-  sData.sensor = 0xA3;
-  sData.data = 1;
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+  //Insert Code Here
+  //You need to edit OnDataRecv to handle incoming overrides.
+  // Serial.println("Looping");
+
+  previousState = currentState;
+  currentState = digitalRead(SWITCH_PIN);
   
-  if (result == ESP_OK) { Serial.println("Sent with success");}
-  else {Serial.println("Error sending the data");}
-}
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  // val = hallRead();
+  // // Serial.println(val);
+
+  // if (val<0){
+  //   currentState = HIGH;
+  // } else {
+  //   currentState = LOW;
+  // }
+
+
+  if((currentState==HIGH) && (previousState==LOW)) {
+    switchTime = millis();
+    measureTime = true;
+  }
+
+  if((currentState==HIGH) && ((millis()-switchTime)>5) && (measureTime==true)) {
+    dt = millis() - t;
+    t = millis();
+    decayTime1 = millis();
+    decayTime2 = millis();
+    // freq = 1/((float)dt/1000);
+
+    updateMeasurements(dt);
+    dtAvg = calculateAverage();
+    freqAvg = 1000/dtAvg;
+    freqNorm = normalise(freqAvg);
+
+    measureTime=false;
+    i++;
+
+  } 
+
+  if ((millis()-decayTime1)>2000) {
+    if ((millis()-decayTime2)>250){
+        decayTime2 = millis();
+        freqNorm=freqNorm*0.9;
+        Serial.println(freqNorm);
+    }
+  }
+
+  if (millis()-transmitTime>250) {
+      transmitTime=millis();
+      output=freqNorm;
+      Serial.println(output);
+      sData.data = output;
+  }
+
+  if(currentState==HIGH){
+    digitalWrite(INTERNAL_LED, HIGH);
+  } else {
+    digitalWrite(INTERNAL_LED, LOW);
+  }
+
 
 
 
