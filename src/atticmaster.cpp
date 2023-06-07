@@ -69,6 +69,37 @@ const char* password = WIFI_PASS; // Password
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 String success;
+int emergencyFlag = 0;
+int emergencyTrigger = 0;
+const unsigned long emergencyButtonTimeout = 5000;
+
+bool RFID1 = false;
+bool RFID2 = false;
+bool RFID3 = false;
+bool RFID4 = false;
+bool DOORTOUCH = false;
+
+int readingcounter = 0;
+
+void getTouch(){
+
+  int reading = analogRead(35);
+
+  if(reading > 3900){
+    // Serial.printf("ABOVE THRESHOLD\n\n\n\n");
+    readingcounter +=25;
+  }
+
+
+    if (readingcounter > 100) {
+      readingcounter = 0;
+       Serial.printf("ABOVE THRESHOLD\n\n\n\n");
+      DOORTOUCH = true;
+    }
+    readingcounter -= 5;
+    if (readingcounter < 0) readingcounter = 0;
+}
+
 
 //This Sends Data to the MasterServer to tell it its still connected
 void statusAlive(){
@@ -82,6 +113,7 @@ void statusAlive(){
 void triggerDoor(int pin, int timeout){
   digitalWrite(pin, LOW);
   Serial.println("Door Opened");
+  delay(15);
   asynctimer.setTimeout([pin]() {
       digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
@@ -93,6 +125,13 @@ void triggerDoor(int pin, int timeout){
 }
 
 
+
+
+
+void IRAM_ATTR emergency(){
+  emergencyFlag = 1;
+
+}
 
 /* ESP-NOW Callback Functions*/
 
@@ -111,13 +150,32 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
   }
 
-  // if((rData.sensor == train_keypad) && (rData.data == 1)){
-  //   Serial.println("Train Door Triggered :)");
-  //   Serial.print("Origin: ");
-  //   Serial.println(rData.origin);
+
+    if (rData.origin == masterserver && rData.sensor == attic_humanchain && rData.data == 1){
+      triggerDoor(5, 2000);
+      triggerDoor(18, 2000);
+      triggerDoor(19, 2000);
+      triggerDoor(21, 2000);
+    }
+
+       if (rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 1){
+      triggerDoor(5, 2000);
+    }
+
+
     
-  //    triggerDoor(door1, doortime);
-  // }
+
+
+
+     if(rData.origin == attic_bike && rData.sensor == attic_bike)
+    {
+    //Send Data to LED to light up appropriately
+      //4000 / 100 = 40
+      ledcWrite(1, ((40)*rData.data));
+      Serial.println(rData.data);
+
+    }
+
 
 
 
@@ -131,24 +189,21 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 }
 
 
-
- 
-
 void startwifi(){
 
   // Set device as a Wi-Fi Station
   WiFi.softAP(NAME, "pinecones", 0, 1, 4);
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-
+  unsigned long wifitimeout = millis();
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(200);
     Serial.print(".");
+    if ((millis() - wifitimeout) > 10000) ESP.restart();
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
       Serial.printf("WiFi Failed!\n");
-      ESP.restart();
       return;
   }
   else{
@@ -235,10 +290,9 @@ longlight();
 shortlight();
 delay(longDelay);
 delay(longDelay);
+Serial.println("Morse");
 //total 24 delay units
 }
-
-
 
 
 void setup() {
@@ -246,10 +300,10 @@ void setup() {
   startwifi();
   startespnow();
 
-  pinMode(16, OUTPUT); // emergency Button GND
-  digitalWrite(16, HIGH);
-  pinMode(17, INPUT_PULLDOWN); // emergency Button
-
+  pinMode(22, OUTPUT); // emergency Button GND
+  digitalWrite(22, HIGH);
+  pinMode(23, INPUT_PULLDOWN); // emergency Button
+  pinMode(2, OUTPUT);
   pinMode(5, OUTPUT);
   pinMode(18, OUTPUT);
   pinMode(19, OUTPUT);
@@ -262,50 +316,104 @@ void setup() {
   delay(250);
   digitalWrite(21, HIGH);
 
+ attachInterrupt(17, emergency, HIGH);
 
   // LIGHT TEST
 
-  ledcSetup(0, 300, 12); // Lightbulb
-  ledcSetup(1, 300, 12); // Bike LED
+  ledcSetup(0, 100, 12); // Lightbulb
+  ledcSetup(1, 100, 12); // Bike LED
   ledcAttachPin(27, 0); // Lightbulb
   ledcAttachPin(26, 1);
   ledcWrite(0, 0);
   ledcWrite(1, 0);
 
   analogReadResolution(12);
-  //GND Pin for PWM Controller for Fan
+  //GND Pin for PWM Controllers
   pinMode(33, OUTPUT);
   digitalWrite(33, LOW);
-    pinMode(25, OUTPUT);
+  pinMode(25, OUTPUT);
   digitalWrite(25, LOW);
 
+  //HumanTouch Pins
+  pinMode(35, INPUT);
+  pinMode(15, OUTPUT);
+  digitalWrite(15,HIGH);
 
-     asynctimer.setInterval([]() {
-      statusAlive();
-      ;},  1000);
+
+    //  asynctimer.setInterval([]() {
+    //   statusAlive();
+    //   ;},  1000);
 
 
-     asynctimer.setInterval([]() {
-      morseloop();
-    }, normalDelay*24);
+    int timeout = normalDelay*24;
+    // Serial.println(timeout);
+    // Serial.println("MorseLooooop Trigger0");
+     
+    //  asynctimer.setInterval([]() {
+    //   Serial.println("MorseLooooop Trigger");
+    //   morseloop();
+    // }, timeout);
+
+    asynctimer.setInterval([]() {getTouch();},  25);
+    asynctimer.setInterval([]() {Serial.println(readingcounter);},  1000);
+
+
+     emergencyTrigger = millis();
   }
 
 
 
 
+int timeout = millis();
 void loop() {
+
+    if (DOORTOUCH){
+    //Open the marvelous door.
+// ***************************************************************** EDIT THIS LATER TO INCLUDE THE BOOL FROM THE PUZZLES
+  Serial.println("Human Chain Touch Detected!");
+  sData.origin = attic_humanchain;
+  sData.sensor = attic_humanchain;
+  sData.data = 1;
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+
+    DOORTOUCH = false;
+  triggerDoor(5, 2000);
+  delay(75);
+  triggerDoor(18, 2000);
+  delay(75);
+  triggerDoor(19, 2000);
+  delay(75);
+  triggerDoor(21, 2000);
+  delay(75);
+  }
+
+
 //Emergency Escape Button
-if(digitalRead(17))
-{
+if ((digitalRead(23)) && (millis() - emergencyTrigger) >= 5000)
+  {
+    emergencyTrigger = millis();
+    emergencyFlag = 0;
+  Serial.println("OH NO HERE WE GO");
   sData.origin = 0x03;
   sData.sensor = 0xA3;
   sData.data = 1;
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
   
-  if (result == ESP_OK) { Serial.println("Sent with success");}
-  else {Serial.println("Error sending the data");}
+  triggerDoor(5, 2000);
+  triggerDoor(18, 2000);
+  triggerDoor(19, 2000);
+  triggerDoor(21, 2000);
+
+  if (result == ESP_OK) { 
+    Serial.println("Sent with success");
+    }
+  else {
+    Serial.println("Error sending the data");
+  }
+  delay(50);
 }
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+
+
 
 
 

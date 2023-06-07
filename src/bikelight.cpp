@@ -75,7 +75,7 @@ float output = 0;
 
 
 // REPLACE WITH THE MAC Address of your receiver 
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03}; // Address of Room Master
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
@@ -106,15 +106,6 @@ String success;
 // bool opendoor3 = false;
 // bool opendoor4 = false;
 
-//Fast Flash to show SENT Data Succesfully
-void sendDataLED(){
-  // If it works... it works...
-  digitalWrite(2,HIGH);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  200);
-  asynctimer.setTimeout([]() {digitalWrite(2,HIGH);},  400);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  600);
-}
-
 
 
 void triggerDoor(int pin, int timeout){
@@ -143,27 +134,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   Serial.println("Data Recieved...");
   
-  
-  // Forward Data from Sensors to Master Server
-  if (rData.origin != masterserver){
-        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-  if (result == ESP_OK) {sendDataLED();}}
-
-
-  // if((rData.sensor == train_keypad) && (rData.data == 1)){
-  //   Serial.println("Train Door Triggered :)");
-  //   Serial.print("Origin: ");
-  //   Serial.println(rData.origin);
-    
-  //    triggerDoor(door1, doortime);
-  // }
-
-
-
-
-
-
-
 
   // Add your code here to do something with the data recieved
 
@@ -232,6 +202,7 @@ void startespnow(){
     Serial.println("Failed to add peer");
     return;
   }
+  else{Serial.print("Peer Added");}
 
 }
 
@@ -295,10 +266,10 @@ float normalise(float output) {
 }
 
 
- void sendLightData(){
+ void sendData(){
 
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-  
+  Serial.println("Data Try to Send");
   if (result == ESP_OK) { Serial.println("Sent Data success");}
   else {Serial.println("Error sending the data");}
 
@@ -323,9 +294,10 @@ void setup() {
 
     sData.origin = attic_bike;
     sData.sensor = attic_bike;
+    sData.data = 0;
 
         asynctimer.setInterval([]() {
-      sendLightData();
+      sendData();
     }, 250);
   }
 
@@ -377,19 +349,19 @@ void loop() {
 
   } 
 
-  if ((millis()-decayTime1)>2000) {
+  if ((millis()-decayTime1)>1500) {
     if ((millis()-decayTime2)>250){
         decayTime2 = millis();
-        freqNorm=freqNorm*0.9;
-        Serial.println(freqNorm);
+        freqNorm=freqNorm*0.7;
+        // Serial.println(freqNorm);
     }
   }
 
   if (millis()-transmitTime>250) {
       transmitTime=millis();
       output=freqNorm;
-      Serial.println(output);
-      sData.data = output;
+      // Serial.println(output);
+      sData.data = int(output*100);
   }
 
   if(currentState==HIGH){

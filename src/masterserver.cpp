@@ -106,6 +106,8 @@ esp_now_peer_info_t peerInfo;
 Card humanchain_card(&dashboard, BUTTON_CARD, "Open Human Chain Door"); // momentary
 Card bike_card(&dashboard, BUTTON_CARD, "Bicycle Lightbulb Override"); // not momentary
 Card grandfatherclock_card(&dashboard, BUTTON_CARD, "Clock Motor Override"); //momentary
+Card bike_speed(&dashboard, GENERIC_CARD, "Bike Speed"); //momentary
+
 
 /* Ancient Tomb */
 Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
@@ -149,6 +151,11 @@ Card train_status(&dashboard, STATUS_CARD, "Train  Status", "success");
 Card tomb_status(&dashboard, STATUS_CARD, "Tomb Status", "success");
 Card attic_status(&dashboard, STATUS_CARD, "Attic Status", "success");
 
+Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
+Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
+Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
+Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4 Status", "idle");
+
 
 /* Contained inside tabs*/
 // Card attic_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
@@ -158,19 +165,19 @@ Card attic_status(&dashboard, STATUS_CARD, "Attic Status", "success");
 
 
 //Global Status
-int global_status;
+// int global_status;
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
 
-  if (status == ESP_NOW_SEND_SUCCESS){
-    global_status = 1;
-  }
-  else
-  {
-    global_status = 0;
-  }
+  // if (status == ESP_NOW_SEND_SUCCESS){
+  //   global_status = 1;
+  // }
+  // else
+  // {
+  //   global_status = 0;
+  // }
 
 }
 
@@ -181,40 +188,59 @@ unsigned short tombtimout = 999;
 
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  // memcpy(&rData, incomingData, sizeof(rData));
-  Serial.println("Data Recieved from Somewhere");
-  Serial.print("Data Origin: ");
-  Serial.println(rData.origin);
+    memcpy(&rData, incomingData, sizeof(rData));
+    Serial.println("Data Recieved from Somewhere");
+    Serial.print("Data Origin: ");
+    Serial.println(rData.origin);
 
-  //Status Check for Main Control Room Sensors
-  if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 0)
-  {
-    asynctimer.cancel(attictimeout);
-    attic_status.update("Connected", "success");
-    dashboard.sendUpdates();
-    // This timeout will never run
+    //Status Check for Main Control Room Sensors I AM NOT SURE IF THIS WORKS CANCEL CANCEL CANCEL YETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
+    if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 0)
+    {
+      asynctimer.cancel(attictimeout);
+      attic_status.update("Connected", "success");
+      dashboard.sendUpdates();
+      
     attictimeout = asynctimer.setTimeout([]() {
-  attic_status.update("Disconnected", "danger");
-  dashboard.sendUpdates();
-}, 5000);
+    attic_status.update("Disconnected", "danger");
+    dashboard.sendUpdates();
+  }, 5000);
 
-//After 5 seconds where this isn't called
+   if(rData.origin == attic_bike && rData.sensor == attic_bike)
+    {
+    bike_speed.update(rData.data);
+    dashboard.sendUpdates();
+    }
 
+    if(rData.origin == attic_humanchain && rData.sensor == attic_humanchain && rData.data == 1)
+    {
+    humanchain_card.update("Open Human Chain Door", "success");
+    dashboard.sendUpdates();
+    }
+
+
+  if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1)
+    {
+      attic_rfid1.update("Connected", "success");
+      dashboard.sendUpdates();
+
+      //After 5s, set it to zero again.
+      attictimeout = asynctimer.setTimeout([]() {
+      attic_rfid1.update("Waiting", "idle");
+      dashboard.sendUpdates();
+    }, 5000);
   }
 
-    digitalWrite(2,HIGH);
-    asynctimer.setTimeout([]() {
-      for (int i=0;i<8;i++){
+      digitalWrite(2,HIGH);
+      asynctimer.setTimeout([]() {
+        for (int i=0;i<8;i++){
+          digitalWrite(2,LOW);
+          delay(75);
+          digitalWrite(2,HIGH);
+          delay(75);
+        }
         digitalWrite(2,LOW);
-        delay(75);
-        digitalWrite(2,HIGH);
-        delay(75);
-      }
-      digitalWrite(2,LOW);
-    }, 1000);
-    
-
-
+      }, 1000);
+  }
 }
 
 void startespnow(){
@@ -460,10 +486,12 @@ void startWifi()
 
   WiFi.setAutoReconnect(true);
   WiFi.begin(ssid, password);
+  unsigned long wifitimeout = millis();
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
+    if ((millis() - wifitimeout) > 10000) ESP.restart();
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED)
   {
@@ -492,42 +520,42 @@ void startWifi()
 
 
 //This uses a delay() implemenation and may slow down other parts of the code.
-void serverstatus(){
-  sData.data = 0;
-  sData.sensor = 0;
+// void serverstatus(){
+//   sData.data = 0;
+//   sData.sensor = 0;
 
-  //Train
-  esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
-  delay(100);
+//   //Train
+//   esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
+//   delay(100);
 
-  if (!global_status) {
-    train_status.update("Disconnected", "danger");
-    }
-  else{
-    train_status.update("Connected", "success");
-  }
+//   if (!global_status) {
+//     train_status.update("Disconnected", "danger");
+//     }
+//   else{
+//     train_status.update("Connected", "success");
+//   }
 
-  esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
-  delay(100);
-  if (!global_status) {
-    tomb_status.update("Disconnected", "danger");
-    }
-  else{
-    tomb_status.update("Connected", "success");
-  }
+//   esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
+//   delay(100);
+//   if (!global_status) {
+//     tomb_status.update("Disconnected", "danger");
+//     }
+//   else{
+//     tomb_status.update("Connected", "success");
+//   }
 
-    esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-   delay(100);
-  if (!global_status) {
-    attic_status.update("Disconnected", "danger");
-    }
-  else{
-    attic_status.update("Connected", "success");
-  }
-  //  global_status = 0;
+//     esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+//    delay(100);
+//   if (!global_status) {
+//     attic_status.update("Disconnected", "danger");
+//     }
+//   else{
+//     attic_status.update("Connected", "success");
+//   }
+//   //  global_status = 0;
 
-  dashboard.sendUpdates();
-}
+//   dashboard.sendUpdates();
+// }
 
 
 void setup() {

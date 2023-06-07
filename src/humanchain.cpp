@@ -4,7 +4,7 @@
   Adriaan van Wijk
   22 May 2023
 
-  Give a short explaination of what this code does and for what puzzle it is.
+  This code uses a 220Ohm resistor on a line to measure if a circuit is completed by outputting a high freq signal in pulses.
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -22,39 +22,13 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "template"
-#define MACAD 0xEE // Refer to Table in Conventions
-
-/* Data Naming Convention for Mac Addresses
-
-*  0x00 - masterserver
-
-
- * 0xA0 - humanchain
- * 0xA1 - bikelight
- * 0xA2 - clockmotor
-
- * 0xB0 - beetle
- * 0xB1 - chalicessensor
- * 0xB2 - ringreader
- * 0xB3 - tangrumtomb
-
- * 0xC0 - thumbreader
- * 0xC1 - Keypad 1
- * 0xC2 - Keypad 2
-
- * 0xD0 - relaycontrol
-
- * 0xEE - template
-
-*/
-
-
-
+#define NAME "humanchain"
+#define MACAD 0xA0 // Refer to Table in Conventions
 
 /* Kernal*/
 #include <Arduino.h>
 #include <config.h>
+#include <encode.h>
 
 /* ESP-DASH */
 #include <ArduinoJson.h>
@@ -72,7 +46,7 @@
 #include <AsyncElegantOTA.h>
 
 // REPLACE WITH THE MAC Address of your receiver 
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
@@ -83,10 +57,6 @@ AsyncTimer asynctimer;
 const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
-/* ESP-NOW Structures */
-typedef struct dataPacket {
-int trigger = 0;
-} dataPacket;
 
 dataPacket sData; // data to send
 dataPacket rData; // data to recieve
@@ -95,8 +65,8 @@ dataPacket rData; // data to recieve
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 
-
-bool turnlighton = false;
+int readingcounter = 0;
+bool trigger = false;
 
 
 /* Example Function on how to send data to another ESP that you can remove*/
@@ -117,70 +87,26 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
-  Serial.println("Override Data Recieved...");
-
-  if (rData.trigger == 1) {
-  //You should never use delay in this function. It might cause the ESP-NOW to crash.
-    turnlighton = true;
-  }
-  else
-  {
-    turnlighton = false;
-  }
-  
-  // Add your code here to do something with the data recieved.
-  //It's probably best to use a flag instead of calling it directly here. Not Sure
-
-  //Demonstration Sending Data:
-
-  sendData();
-
-
 }
- 
 
-int lastState = LOW;
-unsigned long lastChangeTime = 0;
-const unsigned long debounceDelay = 10000;  // debounce time in microseconds
 
 void getTouch(){
 
+  int reading = analogRead(35);
 
-
-    if (touchRead(4) < 40) {
-      turnlighton = true;
-    }
-    else {
-      turnlighton = false;
-    }
-}
-
-void signalGen(){
-
-  digitalWrite(5, HIGH);  // Set the pin to HIGH
-  asynctimer.setTimeout([]() {digitalWrite(5, LOW);},  1000);
-
-
-}
-
-void signalCheck(){
-  int currentState = digitalRead(16);
-  Serial.println(currentState);
-  if (currentState != lastState) {
-    // check if the state change isn't due to noise
-    if ((micros() - lastChangeTime) > debounceDelay) {
-      if (currentState == HIGH) {
-        Serial.println("Signal detected!");
-        turnlighton = true;
-      } else {
-        Serial.println("Signal lost!");
-        turnlighton = false;
-      }
-    }
-    lastState = currentState;
-    lastChangeTime = micros();
+  if(reading > 3900){
+    // Serial.printf("ABOVE THRESHOLD\n\n\n\n");
+    readingcounter +=25;
   }
 
+
+    if (readingcounter > 100) {
+      readingcounter = 0;
+       Serial.printf("ABOVE THRESHOLD\n\n\n\n");
+      trigger = true;
+    }
+    readingcounter -= 5;
+    if (readingcounter < 0) readingcounter = 0;
 }
 
 
@@ -210,7 +136,7 @@ void startwifi(){
     }
   Serial.println("mDNS responder started");
   Serial.printf("*** PROGRAM START ***\n\n");
-  
+
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
   server.begin();
@@ -233,7 +159,7 @@ void startespnow(){
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;  
   peerInfo.encrypt = false;
-  
+
   // Add peer        
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
@@ -251,41 +177,27 @@ void setup() {
 
   pinMode(2, OUTPUT);
   digitalWrite(2,LOW);
-  pinMode(16, INPUT);
-  pinMode(5, OUTPUT);
 
 
+  pinMode(35, INPUT);
+  pinMode(15, OUTPUT);
+  digitalWrite(15,HIGH);
 
-  //Here are two asynchronus timers you can use to run functions.
-  //See https://github.com/Aasim-A/AsyncTimer
-  // For documentations
-
-//    asynctimer.setInterval([]() {getTouch();},  100);
-   asynctimer.setInterval([]() {signalCheck();},  500);
-   asynctimer.setInterval([]() {signalGen();},    2000);
-  // asynctimer.setTimeout([]() {Serial.println("Hello world!");}, 2000);
-// "Hello world!" will be printed to the Serial once after 2 seconds
+  asynctimer.setInterval([]() {getTouch();},  25);
+  asynctimer.setInterval([]() {Serial.println(readingcounter);},  1000);
 }
 
 
-
-
-
+int timeout = millis();
 void loop() {
 
-
-
-  if (turnlighton) {
+  if (trigger){
+    //Open the marvelous door.
     digitalWrite(2,HIGH);
-  }
-  else {
+    delay(1000);
     digitalWrite(2,LOW);
+    trigger = false;
   }
-
-
-
-
-
 
   //Required for the asynctimer to work.
   asynctimer.handle();

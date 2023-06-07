@@ -1,10 +1,11 @@
 /*
+/*
   --------------------------------------------------------------------------
   Escape Room Template
   Adriaan van Wijk
   22 May 2023
 
-  This code controls 4 relays which will arm and disarm electromagnetic locks.
+  SINGLE RFID Template To Use
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -22,8 +23,12 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "thumbreader"
-#define MACAD 0xC1 // Refer to Table in Conventions
+#define NAME "RFID1"
+#define MACAD 0xA4 // Refer to Table in Conventions
+
+#define SS_PIN  5  // ESP32 pin GPIO5 
+#define RST_PIN 21 // ESP32 pin GPIO21
+
 
 
 
@@ -47,11 +52,18 @@
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
 
+/* RFID */
+#include <SPI.h>
+#include <MFRC522.h>
 
+
+
+
+MFRC522 rfid(SS_PIN, RST_PIN);
 
 
 // REPLACE WITH THE MAC Address of your receiver 
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
@@ -65,47 +77,15 @@ const char* password = WIFI_PASS; // Password
 /* ESP-NOW Structures */
 
 
-
-
-
-
- dataPacket sData; // data to send
- dataPacket rData; // data to recieve
+dataPacket sData; // data to send
+dataPacket rData; // data to recieve
 
 /* Setup */
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
-String success;
-
-// bool opendoor1 = false;
-// bool opendoor2 = false;
-// bool opendoor3 = false;
-// bool opendoor4 = false;
-
-//Fast Flash to show SENT Data Succesfully
-void sendDataLED(){
-  // If it works... it works...
-  digitalWrite(2,HIGH);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  200);
-  asynctimer.setTimeout([]() {digitalWrite(2,HIGH);},  400);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  600);
-}
 
 
-
-void triggerDoor(int pin, int timeout){
-  digitalWrite(pin, LOW);
-  Serial.println("Door Opened");
-  asynctimer.setTimeout([pin]() {
-      digitalWrite(pin, HIGH);
-      Serial.println("Door Closed");
-    }, 5000);
-  
-  
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-
-}
-
+bool turnlighton = false;
 
 
 /* ESP-NOW Callback Functions*/
@@ -116,15 +96,22 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
+  Serial.println("Override Data Recieved...");
 
-  Serial.println("Data Recieved...");
-  //TRIGGER LATCH FOR A 3 SECONDS.
+  if (rData.data == 1) {
+  //You should never use delay in this function. It might cause the ESP-NOW to crash.
+    turnlighton = true;
+  }
+  else
+  {
+    turnlighton = false;
+  }
+  
+  // Add your code here to do something with the data recieved.
+  //It's probably best to use a flag instead of calling it directly here. Not Sure
 
 
 }
-
-
-
  
 
 void startwifi(){
@@ -189,61 +176,81 @@ void startespnow(){
 
 }
 
+void sendData()
+{
 
-int val = 0;
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+      if (result == ESP_OK) { Serial.println("Sent with success");}
+      else {Serial.println("Error sending the data");}
+
+}
+
 void setup() {
   Serial.begin(115200);
   startwifi();
   startespnow();
 
+  sData.origin = attic_RFID1;
+  sData.sensor = attic_RFID1;
+
+  // 
+  pinMode(SS_PIN, PULLUP);
+
+  //Make any Edits you need to add below this line ------------------------------
+
   pinMode(2, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(18, OUTPUT);
-  pinMode(19, OUTPUT);
-  pinMode(21, OUTPUT);
-  digitalWrite(5, HIGH);
-  delay(250);
-  digitalWrite(18, HIGH);
-  delay(250);
-  digitalWrite(19, HIGH);
-  delay(250);
-  digitalWrite(21, HIGH);
+  digitalWrite(2,LOW);
 
 
-  // LIGHT TEST
+  SPI.begin(); // init SPI bus
+  rfid.PCD_Init(); // init MFRC522
+  // Enhance the MFRC522 Receiver Gain to maximum value of some 48 dB
+  rfid.PCD_SetRegisterBitMask(rfid.RFCfgReg, (0x07<<4));
 
-  ledcSetup(0, 300, 12); // Lightbulb
-  ledcSetup(1, 300, 12); // Bike LED
-  ledcAttachPin(27, 0); // Lightbulb
-  ledcAttachPin(26, 1);
-  ledcWrite(0, 0);
-  ledcWrite(1, 0);
-
-  analogReadResolution(12);
-  //GND Pin for PWM Controller for Fan
-  pinMode(33, OUTPUT);
-  digitalWrite(33, LOW);
-    pinMode(25, OUTPUT);
-  digitalWrite(25, LOW);
+  Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
 
-  //    asynctimer.setInterval([]() {
-  //     morseloop();
-  //   }, normalDelay*24);
-  }
+  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  // asynctimer.setInterval([]() {sendData();},  5000);
+}
 
 
 
 
 void loop() {
 
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  if (turnlighton) {
+    digitalWrite(2,HIGH);
+  }
+  else {
+    digitalWrite(2,LOW);
+  }
 
-  val = hallRead();
-  // print the results to the serial monitor
-  Serial.println(val); 
-  delay(500);
+
+  if (rfid.PICC_IsNewCardPresent()) { // new tag is available
+    if (rfid.PICC_ReadCardSerial()) { // NUID has been readed
+      MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
+      Serial.print("RFID/NFC Tag Type: ");
+      Serial.println(rfid.PICC_GetTypeName(piccType));
+      sData.data = 1;
+      sendData();
+  
+      sData.data = 0;
+      // print UID in Serial Monitor in the hex format
+      Serial.print("UID:");
+      for (int i = 0; i < rfid.uid.size; i++) {
+        Serial.print(rfid.uid.uidByte[i] < 0x10 ? " 0" : " ");
+        Serial.print(rfid.uid.uidByte[i], HEX);
+      }
+      Serial.println();
+
+      rfid.PICC_HaltA(); // halt PICC
+      rfid.PCD_StopCrypto1(); // stop encryption on PCD
+    }
+  }
 
 
+
+  //Required for the asynctimer to work.
   asynctimer.handle();
 }

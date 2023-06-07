@@ -1,5 +1,7 @@
 /* Data Naming Convention for Mac Addresses
 
+* Note that Masterserver was MERGED with trainmaster. Using 0x00 address.
+
 *  0x00 - masterserver
 *  0x01 - trainmaster
 *  0x02 - tombmaster
@@ -10,6 +12,10 @@
  * 0xA1 - bike
  * 0xA2 - grandfatherclock
  * 0xA3 - attic_overrideButton (??? Not sure where to connect)
+ * 0xA4 RFID1
+ * 0xA5 RFID2
+ * 0xA6 RFID3
+ * 0xA7 RFID4
 
  * 0xB0 - sennet
  * 0xB1 - chalice
@@ -44,7 +50,7 @@ RFID TAG ESP32 PINS:
 D5  -   SDA
 D18 -   SCK
 D19 -   MISO
-D27 -   RST (21)
+D27 -   RST (5)
 
 D23 -   MOSI
 

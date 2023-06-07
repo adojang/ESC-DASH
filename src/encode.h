@@ -10,6 +10,10 @@
 #define attic_bike 0xA1
 #define attic_grandfatherclock 0xA2
 #define attic_overrideButton 0xA3
+#define attic_RFID1 0xA4
+#define attic_RFID2 0xA5
+#define attic_RFID3 0xA6
+#define attic_RFID4 0xA7
 
 //Tomb
 #define tomb_sennet 0xB0
