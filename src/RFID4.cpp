@@ -268,6 +268,9 @@ void loop() {
       MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
       Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
 
+      sData.data = 1;
+      sendData();
+      sData.data = 0;
       // Halt PICC
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD

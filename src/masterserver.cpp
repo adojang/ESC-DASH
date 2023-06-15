@@ -101,6 +101,9 @@ esp_now_peer_info_t peerInfo;
 
 #define CARDLEN 8
 
+/*Testing*/
+Card touchval(&dashboard, GENERIC_CARD, "Touch Value");
+Card RFIDval(&dashboard, GENERIC_CARD, "RFIDval Value");
 
 /* Attic */
 Card humanchain_card(&dashboard, BUTTON_CARD, "Open Human Chain Door"); // momentary
@@ -193,6 +196,58 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     Serial.print("Data Origin: ");
     Serial.println(rData.origin);
 
+    if(rData.origin == attic_humanchain && rData.sensor == attic_humanchain)
+    {
+      touchval.update(rData.data);
+      dashboard.sendUpdates();
+    }
+
+    if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
+    {
+      RFIDval.update(rData.data);
+      dashboard.sendUpdates();
+    }
+    
+    if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1)
+    {
+      attic_rfid1.update("ARMED", "success");
+      asynctimer.setTimeout([]() {
+    attic_rfid1.update("Idle", "danger");
+    dashboard.sendUpdates();
+      }, 3000);
+      dashboard.sendUpdates();
+    }
+
+        if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 1)
+    {
+      attic_rfid2.update("ARMED", "success");
+      asynctimer.setTimeout([]() {
+    attic_rfid2.update("Idle", "danger");
+    dashboard.sendUpdates();
+      }, 3000);
+      dashboard.sendUpdates();
+    }
+
+    if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3 && rData.data == 1)
+    {
+      attic_rfid3.update("ARMED", "success");
+      asynctimer.setTimeout([]() {
+    attic_rfid3.update("Idle", "danger");
+    dashboard.sendUpdates();
+      }, 3000);
+      dashboard.sendUpdates();
+    }
+
+        if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4 && rData.data == 1)
+    {
+      attic_rfid4.update("ARMED", "success");
+      asynctimer.setTimeout([]() {
+    attic_rfid4.update("Idle", "danger");
+    dashboard.sendUpdates();
+      }, 3000);
+      dashboard.sendUpdates();
+    }
+
     //Status Check for Main Control Room Sensors I AM NOT SURE IF THIS WORKS CANCEL CANCEL CANCEL YETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
     if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 0)
     {
@@ -242,6 +297,9 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
       }, 1000);
   }
 }
+
+
+// END STATUS CHECK
 
 void startespnow(){
     // Init ESP-NOW
@@ -381,8 +439,10 @@ sData.data = 0;
 bike_card.attachCallback([](int value){
 bike_card.update(value);
 Serial.printf("Bike Light Enabled\n");
-sData.data = value;
-esp_err_t result = esp_now_send(m_attic_bike, (uint8_t *) &sData, sizeof(sData));
+sData.origin = masterserver;
+sData.sensor = attic_bike;
+sData.data = 1;
+esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
 sData.data = 0;
 dashboard.sendUpdates();

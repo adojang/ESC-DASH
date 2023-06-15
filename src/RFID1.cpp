@@ -5,7 +5,7 @@
   Adriaan van Wijk
   22 May 2023
 
-  SINGLE RFID Template To Use
+  MULTI-RFID Template To Use
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -25,12 +25,6 @@
 
 #define NAME "RFID1"
 #define MACAD 0xA4 // Refer to Table in Conventions
-
-#define SS_PIN  5  // ESP32 pin GPIO5 
-#define RST_PIN 21 // ESP32 pin GPIO21
-
-
-
 
 /* Kernal*/
 #include <Arduino.h>
@@ -57,10 +51,17 @@
 #include <MFRC522.h>
 
 
+// #define SS_PIN  5  // ESP32 pin GPIO5 
+#define RST_PIN 5 // ESP32 pin GPIO21
 
+#define SS_1_PIN        13         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
 
-MFRC522 rfid(SS_PIN, RST_PIN);
+bool hex1 = false;
+#define NR_OF_READERS   1
 
+byte ssPins[] = {SS_1_PIN};
+
+MFRC522 mfrc522[NR_OF_READERS];   // Create MFRC522 instance.
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03}; // Address of Master Server
@@ -75,7 +76,6 @@ const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
-
 
 dataPacket sData; // data to send
 dataPacket rData; // data to recieve
@@ -120,20 +120,19 @@ void startwifi(){
   WiFi.softAP(NAME, "pinecones", 0, 1, 4);
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-
+  delay(250);
   WiFi.begin(ssid, password);
+  delay(250);
+  unsigned long wifitimeout = millis();
   while (WiFi.status() != WL_CONNECTED) {
     delay(200);
     Serial.print(".");
-  }
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.printf("WiFi Failed!\n");
+    if (millis()- wifitimeout > 5000){
+      Serial.printf("WiFi Failed to Connect!\n"); // 10 second timeout
       ESP.restart();
-      return;
+    } 
   }
-  else{
     Serial.println("WIFI CONNECTED!");
-  }
 
    /* MDNS */
   if (!MDNS.begin(NAME)) {
@@ -178,7 +177,6 @@ void startespnow(){
 
 void sendData()
 {
-
       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
       if (result == ESP_OK) { Serial.println("Sent with success");}
       else {Serial.println("Error sending the data");}
@@ -189,23 +187,27 @@ void setup() {
   Serial.begin(115200);
   startwifi();
   startespnow();
-
   sData.origin = attic_RFID1;
   sData.sensor = attic_RFID1;
-
-  // 
-  pinMode(SS_PIN, PULLUP);
 
   //Make any Edits you need to add below this line ------------------------------
 
   pinMode(2, OUTPUT);
   digitalWrite(2,LOW);
+  pinMode(SS_1_PIN, PULLUP);
 
 
-  SPI.begin(); // init SPI bus
-  rfid.PCD_Init(); // init MFRC522
-  // Enhance the MFRC522 Receiver Gain to maximum value of some 48 dB
-  rfid.PCD_SetRegisterBitMask(rfid.RFCfgReg, (0x07<<4));
+  SPI.begin();        // Init SPI bus
+
+  for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+    mfrc522[reader].PCD_Init(ssPins[reader], RST_PIN); // Init each MFRC522 card
+    mfrc522[reader].PCD_SetRegisterBitMask(mfrc522[reader].RFCfgReg, (0x07<<4));
+    Serial.print(F("Reader "));
+    Serial.print(reader);
+    Serial.print(F(": "));
+    mfrc522[reader].PCD_DumpVersionToSerial();
+  }
+
 
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
@@ -216,6 +218,12 @@ void setup() {
 
 
 
+void dump_byte_array(byte *buffer, byte bufferSize) {
+  for (byte i = 0; i < bufferSize; i++) {
+    Serial.print(buffer[i] < 0x10 ? " 0" : " ");
+    Serial.print(buffer[i], HEX);
+  }
+}
 
 void loop() {
 
@@ -226,28 +234,49 @@ void loop() {
     digitalWrite(2,LOW);
   }
 
-
-  if (rfid.PICC_IsNewCardPresent()) { // new tag is available
-    if (rfid.PICC_ReadCardSerial()) { // NUID has been readed
-      MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
-      Serial.print("RFID/NFC Tag Type: ");
-      Serial.println(rfid.PICC_GetTypeName(piccType));
-      sData.data = 1;
-      sendData();
   
-      sData.data = 0;
-      // print UID in Serial Monitor in the hex format
-      Serial.print("UID:");
-      for (int i = 0; i < rfid.uid.size; i++) {
-        Serial.print(rfid.uid.uidByte[i] < 0x10 ? " 0" : " ");
-        Serial.print(rfid.uid.uidByte[i], HEX);
+      for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+    // Look for new cards
+
+    if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
+      // Serial.print(F("Reader "));
+      // Serial.print(reader);
+      // Show some details of the PICC (that is: the tag/card)
+      // Serial.print(F(": Card UID:"));
+      dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
+      
+      String uidText = "";
+      for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
+        uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
       Serial.println();
+      Serial.println(uidText);
 
-      rfid.PICC_HaltA(); // halt PICC
-      rfid.PCD_StopCrypto1(); // stop encryption on PCD
-    }
-  }
+      if(uidText == "901fd026"){
+        Serial.println("reader1");
+        hex1 = true;
+      } 
+
+      
+      //  Serial.print(F("PICC type: "));
+       MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
+      //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
+
+      // Halt PICC
+      mfrc522[reader].PICC_HaltA();
+      // Stop encryption on PCD
+      mfrc522[reader].PCD_StopCrypto1();
+      sData.data = 1;
+      sendData();
+      sData.data = 0;
+    } //if (mfrc522[reader].PICC_IsNewC
+  } //for(uint8_t reader
+  delay(50);
+
+
+
+
+
 
 
 

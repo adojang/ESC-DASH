@@ -67,7 +67,7 @@ byte ssPins[] = {SS_1_PIN, SS_2_PIN};
 MFRC522 mfrc522[NR_OF_READERS];   // Create MFRC522 instance.
 
 // REPLACE WITH THE MAC Address of your receiver 
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03}; // Address of Master Server
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03}; // Address of Attic Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
@@ -180,9 +180,16 @@ void startespnow(){
 
 void sendData()
 {
+  Serial.println(hex1);
+  Serial.println(hex2);
+  if (hex1 ==true && hex2 == true)
+  {
+      sData.data = 1;
       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
       if (result == ESP_OK) { Serial.println("Sent with success");}
       else {Serial.println("Error sending the data");}
+      sData.data = 0;
+  }
 
 }
 
@@ -197,6 +204,8 @@ void setup() {
 
   pinMode(2, OUTPUT);
   digitalWrite(2,LOW);
+  pinMode(SS_1_PIN, PULLUP);
+  pinMode(SS_2_PIN, PULLUP);
 
 
   SPI.begin();        // Init SPI bus
@@ -254,21 +263,22 @@ void loop() {
       Serial.println();
       Serial.println(uidText);
 
-      if(uidText == "901fd026"){
-        Serial.println("reader1");
+    
+
+      if(uidText == "90311126" && reader==0){
+        Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
+        sendData();
       } 
 
-      if(uidText == "31cc8b") 
-      {
-        Serial.println("reader2");
+      if(uidText == "c17231d" && reader==1){
+        Serial.println("Pin 14 Reader 2 Triggered.");
         hex2 = true;
-      }
-      if(uidText == "919a1f1d") 
-      {
-        Serial.println("reader3");
-        hex3 = true;
-      }
+        sendData();
+
+      } 
+
+ 
       
       //  Serial.print(F("PICC type: "));
        MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
@@ -278,9 +288,7 @@ void loop() {
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD
       mfrc522[reader].PCD_StopCrypto1();
-      sData.data = 1;
-      sendData();
-      sData.data = 0;
+  
     } //if (mfrc522[reader].PICC_IsNewC
   } //for(uint8_t reader
   delay(50);

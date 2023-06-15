@@ -7,6 +7,10 @@
 
   MULTI-RFID Template To Use
 
+  // Pin 27 #3
+  // Pin 14 # 2
+  // Pin 13 #1
+
   Copyright [2023] [Proxonics (Pty) Ltd]
 
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,9 +58,9 @@
 // #define SS_PIN  5  // ESP32 pin GPIO5 
 #define RST_PIN 5 // ESP32 pin GPIO21
 
-#define SS_1_PIN        27         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2
-#define SS_2_PIN        13          // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
-#define SS_3_PIN        26 //14
+#define SS_1_PIN        13         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2
+#define SS_2_PIN        14          // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
+#define SS_3_PIN        27 //14
 
 bool hex1 = false;
 bool hex2 = false;

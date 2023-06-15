@@ -77,7 +77,7 @@ uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
 /* ESP Async Timer */
-AsyncTimer asynctimer;
+AsyncTimer asynctimer(20);
 
 /* WiFi Credentials */
 const char* ssid = WIFI_SSID; // SSID
@@ -197,16 +197,109 @@ void startespnow(){
 
 }
 
+
+int globalwait = 0;
+int normalDelay = 650;
+int longDelay = normalDelay * 2;
+int morsebootflag = 0;
+int morseperiod = 0;
+unsigned long morsetimer = 0;
+
+void shortlight() {
+  turnlighton = true;
+  asynctimer.setTimeout([]() {
+    turnlighton = false;
+    Serial.println("Light Off");
+  }, normalDelay);
+}
+
+void longlight(){ // turn light on, then wait for delay to turn off again.
+  turnlighton = true;
+
+  asynctimer.setTimeout([]() {
+    turnlighton = false;
+    Serial.println("Light Off");
+  }, longDelay);
+}
+
+void breifpause(){
+  globalwait += longDelay;
+}
+
+void endloop(){
+
+morseperiod = (millis()-morsetimer) + (2*longDelay);
+morsebootflag = 1;
+Serial.println("Morse Period:");
+Serial.println(morseperiod);
+}
+
+void dot(){
+  asynctimer.setTimeout([]() {shortlight(); }, globalwait);
+    globalwait += normalDelay*2;
+    Serial.printf("New Wait Time: %d\n", globalwait);
+    }
+
+    void dash(){
+  asynctimer.setTimeout([]() {longlight(); }, globalwait);
+    globalwait += longDelay*2;
+    Serial.printf("New Wait Time: %d\n", globalwait);
+    }
+
+void morseloop(){
+morsetimer = millis();
+globalwait = 0;
+
+dot();
+dot();
+dot();
+dash();
+dash();
+breifpause();
+
+dot();
+dot();
+dot();
+dot();
+dot();
+breifpause();
+
+dot();
+dash();
+dash();
+dash();
+dash();
+
+if (morsebootflag == 0){
+  asynctimer.setTimeout([]() {endloop();}, globalwait); // wait for 6200 before executing
+}
+
+Serial.println("Morse End");
+}
+
+
 void setup() {
   Serial.begin(115200);
-  startwifi();
-  startespnow();
-
+  // startwifi();
+  // startespnow();
   //Make any Edits you need to add below this line ------------------------------
 
   pinMode(2, OUTPUT);
   digitalWrite(2,LOW);
 
+    ledcSetup(0, 100, 12); // Lightbulb
+  ledcSetup(1, 100, 12); // Bike LED
+  ledcAttachPin(27, 0); // Lightbulb
+  ledcAttachPin(26, 1);
+  ledcWrite(0, 0);
+  ledcWrite(1, 0);
+
+
+    //Initialize and calculate the total period time.
+
+      //Initialize
+      morseloop();
+     //CRASHES BECAUSE I DONT HAE ENOUGH TIMERS AVAILABLE
 
 
 
@@ -214,7 +307,7 @@ void setup() {
   //See https://github.com/Aasim-A/AsyncTimer
   // For documentations
 
-   asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
+  //  asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
   // asynctimer.setTimeout([]() {Serial.println("Hello world!");}, 2000);
 // "Hello world!" will be printed to the Serial once after 2 seconds
 }
@@ -222,13 +315,23 @@ void setup() {
 
 
 void loop() {
-
+  if(morsebootflag == 1)
+  {
+    Serial.println("morsebootflag = 1");
+      asynctimer.setInterval([]() {
+      Serial.println("Set Interval");
+      morseloop();
+    }, morseperiod);
+    morsebootflag = 2;
+  }
 
 
   if (turnlighton) {
+    ledcWrite(0, 4000);
     digitalWrite(2,HIGH);
   }
   else {
+    ledcWrite(0, 0);
     digitalWrite(2,LOW);
   }
 

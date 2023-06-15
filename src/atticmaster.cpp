@@ -55,7 +55,7 @@ uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
 /* ESP Async Timer */
-AsyncTimer asynctimer;
+AsyncTimer asynctimer(30);
 
 /* WiFi Credentials */
 const char* ssid = WIFI_SSID; // SSID
@@ -73,20 +73,37 @@ int emergencyFlag = 0;
 int emergencyTrigger = 0;
 const unsigned long emergencyButtonTimeout = 5000;
 
-bool RFID1 = false;
-bool RFID2 = false;
-bool RFID3 = false;
-bool RFID4 = false;
+bool RFID1_status = false;
+bool RFID2_status = false;
+bool RFID3_status = false;
+bool RFID4_status = false;
 bool DOORTOUCH = false;
 
 int readingcounter = 0;
 
+float currentValue = 0.0;
+float previousEMA = 0.0;
+float prevousEMA2 = 0.0;
+float smoothingFactor = 0.8;  // Adjust this value based on your application
+//0.8 600-3400 floating, 4000 touching
+
+float emaFilter(float currentValue, float previousEMA, float smoothingFactor) {
+  return (currentValue * smoothingFactor) + (previousEMA * (1 - smoothingFactor));
+}
+
 void getTouch(){
 
-  int reading = analogRead(35);
+  int reading = analogRead(34);
+  float filteredValue = emaFilter(reading, previousEMA, smoothingFactor);
+  previousEMA = filteredValue;
+  sData.data = filteredValue;
+  sData.origin = attic_humanchain;
+  sData.sensor = attic_humanchain;
 
-  if(reading > 3900){
-    // Serial.printf("ABOVE THRESHOLD\n\n\n\n");
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+
+  if(filteredValue > 3900){
+    Serial.printf("ABOVE THRESHOLD\n\n\n\n");
     readingcounter +=25;
   }
 
@@ -152,19 +169,21 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 
     if (rData.origin == masterserver && rData.sensor == attic_humanchain && rData.data == 1){
-      triggerDoor(5, 2000);
-      triggerDoor(18, 2000);
-      triggerDoor(19, 2000);
-      triggerDoor(21, 2000);
+      // triggerDoor(5, 2000);
+      // triggerDoor(18, 2000);
+      // triggerDoor(19, 2000);
+      // triggerDoor(21, 2000);
     }
 
-       if (rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 1){
-      triggerDoor(5, 2000);
+    if (rData.origin == masterserver && rData.sensor == attic_bike){
+      if (rData.data == 1) ledcWrite(1, (4000));
+
+      if(rData.data == 0) ledcWrite(1, (4000));
     }
 
-
-    
-
+    if (rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 1){
+      // triggerDoor(5, 2000);
+    }
 
 
      if(rData.origin == attic_bike && rData.sensor == attic_bike)
@@ -251,47 +270,84 @@ void startespnow(){
 
 }
 
+int globalwait = 0;
 int normalDelay = 650;
+
 int longDelay = normalDelay * 2;
-void shortlight(){
+int morsebootflag = 0;
+int morseperiod = 0;
+unsigned long morsetimer = 0;
 
+void shortlight() {
   ledcWrite(0, 4000);
-  digitalWrite(2,HIGH);
-  delay(normalDelay);
-  ledcWrite(0, 0);
-  digitalWrite(2,LOW);
-  delay(normalDelay);
+  asynctimer.setTimeout([]() {
+    ledcWrite(0, 0);
+    Serial.println("Light Off");
+  }, normalDelay);
 }
-void longlight(){
-  ledcWrite(0, 4000);
-  digitalWrite(2,HIGH);
-  delay(longDelay);
-  digitalWrite(2,LOW);
-  ledcWrite(0, 0);
-  delay(normalDelay);
 
+void longlight(){ // turn light on, then wait for delay to turn off again.
+  ledcWrite(0, 4000);
+
+  asynctimer.setTimeout([]() {
+    ledcWrite(0, 0);
+    Serial.println("Light Off");
+  }, longDelay);
 }
+
+void breifpause(){
+  globalwait += longDelay;
+}
+
+void endloop(){
+
+morseperiod = (millis()-morsetimer) + (2*longDelay);
+morsebootflag = 1;
+Serial.println("Morse Period:");
+Serial.println(morseperiod);
+}
+
+void dot(){
+  asynctimer.setTimeout([]() {shortlight(); }, globalwait);
+    globalwait += normalDelay*2;
+    Serial.printf("New Wait Time: %d\n", globalwait);
+    }
+
+    void dash(){
+  asynctimer.setTimeout([]() {longlight(); }, globalwait);
+    globalwait += longDelay*2;
+    Serial.printf("New Wait Time: %d\n", globalwait);
+    }
 
 void morseloop(){
-//Spell ESC 
+morsetimer = millis();
+globalwait = 0;
 
-//E - 3 delay units
-shortlight();
-delay(normalDelay);
-//S - 7 delay units
-shortlight();
-shortlight();
-shortlight();
-delay(normalDelay);
-//C - 12 delay units
-longlight();
-shortlight();
-longlight();
-shortlight();
-delay(longDelay);
-delay(longDelay);
-Serial.println("Morse");
-//total 24 delay units
+dot();
+dot();
+dot();
+dash();
+dash();
+breifpause();
+
+dot();
+dot();
+dot();
+dot();
+dot();
+breifpause();
+
+dot();
+dash();
+dash();
+dash();
+dash();
+
+if (morsebootflag == 0){
+  asynctimer.setTimeout([]() {endloop();}, globalwait); // wait for 6200 before executing
+}
+
+Serial.println("Morse End");
 }
 
 
@@ -327,6 +383,9 @@ void setup() {
   ledcWrite(0, 0);
   ledcWrite(1, 0);
 
+  //Morse Code Initialize:
+   morseloop();
+
   analogReadResolution(12);
   //GND Pin for PWM Controllers
   pinMode(33, OUTPUT);
@@ -335,7 +394,7 @@ void setup() {
   digitalWrite(25, LOW);
 
   //HumanTouch Pins
-  pinMode(35, INPUT);
+  pinMode(34, INPUT_PULLDOWN);
   pinMode(15, OUTPUT);
   digitalWrite(15,HIGH);
 
@@ -354,7 +413,7 @@ void setup() {
     //   morseloop();
     // }, timeout);
 
-    asynctimer.setInterval([]() {getTouch();},  25);
+    asynctimer.setInterval([]() {getTouch();},  250);
     asynctimer.setInterval([]() {Serial.println(readingcounter);},  1000);
 
 
@@ -367,24 +426,36 @@ void setup() {
 int timeout = millis();
 void loop() {
 
-    if (DOORTOUCH){
-    //Open the marvelous door.
+    if(morsebootflag == 1)
+  {
+    Serial.println("morsebootflag = 1");
+      asynctimer.setInterval([]() {
+      Serial.println("Set Interval");
+      morseloop();
+    }, morseperiod);
+    morsebootflag = 2;
+  }
+
+  // THESE TWO MUST BE MERGED WHEN THE PUZZLE IS COMPLETE
+if (DOORTOUCH){
+  //Open the marvelous door.
 // ***************************************************************** EDIT THIS LATER TO INCLUDE THE BOOL FROM THE PUZZLES
   Serial.println("Human Chain Touch Detected!");
   sData.origin = attic_humanchain;
   sData.sensor = attic_humanchain;
   sData.data = 1;
+  //Send data to masterserver
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
 
     DOORTOUCH = false;
   triggerDoor(5, 2000);
-  delay(75);
+  delay(100);
   triggerDoor(18, 2000);
-  delay(75);
+  delay(100);
   triggerDoor(19, 2000);
-  delay(75);
+  delay(100);
   triggerDoor(21, 2000);
-  delay(75);
+  delay(100);
   }
 
 
