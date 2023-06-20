@@ -64,7 +64,7 @@ byte rowPins2[ROWS] = {14, 32, 33, 26}; // connect to the row pinouts of the key
 byte colPins2[COLS] = {27, 12, 25};   // connect to the column pinouts of the keypad
 
 // C2 R1 C1 R4 C3 R3 R2
-//12 14 27 26 25 33 32
+//12 14 27 26 25 33 32  
 
 // initialize an instance of class NewKeypad
 Adafruit_Keypad customKeypad = Adafruit_Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
@@ -99,7 +99,7 @@ String enteredSequence = "";
 unsigned long lastKeyPressTimestamp = 0;
 const unsigned long resetTimeout = 5000; // 20 seconds
 
-const String correctSequence2 = "777";
+const String correctSequence2 = "1234";
 String enteredSequence2 = "";
 unsigned long lastKeyPressTimestamp2 = 0;
 const unsigned long resetTimeout2 = 5000; // 20 seconds
@@ -126,42 +126,42 @@ bool checkSequence2() {
 }
 
 
-void startwifi()
-{
+void startwifi(){
 
   // Set device as a Wi-Fi Station
   WiFi.softAP(NAME, "pinecones", 0, 1, 4);
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-
+  unsigned long wifitimeout = millis();
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
-  {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(200);
     Serial.print(".");
+    if ((millis() - wifitimeout) > 10000) ESP.restart();
   }
-  if (WiFi.waitForConnectResult() != WL_CONNECTED)
-  {
-    Serial.printf("WiFi Failed!\n");
-    return;
+  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+      Serial.printf("WiFi Failed!\n");
+      return;
+  }
+  else{
+    Serial.println("WIFI CONNECTED!");
   }
 
-  /* MDNS */
-  if (!MDNS.begin(NAME))
-  {
-    Serial.println("Error setting up MDNS responder!");
-    while (1)
-    {
-      delay(1000);
+   /* MDNS */
+  if (!MDNS.begin(NAME)) {
+        Serial.println("Error setting up MDNS responder!");
+        while(1) {
+            delay(1000);
+        }
     }
-  }
   Serial.println("mDNS responder started");
   Serial.printf("*** PROGRAM START ***\n\n");
-
+  
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
 
   server.begin();
   MDNS.addService("http", "tcp", 80);
+
 }
 
 void startespnow()
@@ -200,6 +200,14 @@ void sendData()
       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
       if (result == ESP_OK) { Serial.println("Sent with success");}
       else {Serial.println("Error sending the data");}
+
+            for (int i=0;i<8;i++){
+              digitalWrite(15,HIGH);
+              delay(75);
+              digitalWrite(15,LOW);
+              delay(75);
+            }
+            digitalWrite(15,HIGH);
 }
 
 void setup()
@@ -211,7 +219,9 @@ void setup()
   // Make any Edits you need to add below this line ------------------------------
 
   pinMode(2, OUTPUT);
-  digitalWrite(2, LOW);
+  pinMode(15, OUTPUT);
+  digitalWrite(2, HIGH);
+  digitalWrite(15,HIGH);
 
   customKeypad.begin(); // Startup for Keypad
   customKeypad2.begin(); // Startup for Keypad
@@ -239,14 +249,16 @@ void loop()
         if (checkSequence()) {
           Serial.println("Correct sequence entered!");
           sendData();
-          for (int i=0;i<8;i++){
+
+        } else {
+          Serial.println("WRONG");
+            for (int i=0;i<8;i++){
               digitalWrite(2,HIGH);
               delay(75);
               digitalWrite(2,LOW);
               delay(75);
             }
-        } else {
-          Serial.println("WRONG");
+            digitalWrite(2,HIGH);
         }
         enteredSequence = ""; // Reset the entered sequence after checking
       } else {
@@ -269,12 +281,6 @@ void loop()
         if (checkSequence2()) {
           Serial.println("Correct sequence entered!");
           sendData();
-          for (int i=0;i<8;i++){
-              digitalWrite(2,HIGH);
-              delay(75);
-              digitalWrite(2,LOW);
-              delay(75);
-            }
         } else {
           Serial.println("WRONG");
         }

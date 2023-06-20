@@ -76,7 +76,6 @@ MFRC522 mfrc522[NR_OF_READERS];   // Create MFRC522 instance.
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
-
 /* ESP Async Timer */
 AsyncTimer asynctimer;
 
@@ -106,18 +105,6 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
-
-  if (rData.data == 1) {
-  //You should never use delay in this function. It might cause the ESP-NOW to crash.
-    turnlighton = true;
-  }
-  else
-  {
-    turnlighton = false;
-  }
-  
-  // Add your code here to do something with the data recieved.
-  //It's probably best to use a flag instead of calling it directly here. Not Sure
 
 
 }
@@ -186,9 +173,37 @@ void startespnow(){
 
 void sendData()
 {
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-      if (result == ESP_OK) { Serial.println("Sent with success");}
-      else {Serial.println("Error sending the data");}
+  int HexCount = 0;
+
+  if (hex1 == true){
+    HexCount = HexCount + 1;
+  }
+
+  if (hex2 == true){
+     HexCount = HexCount + 1;
+  }
+  
+  if (hex3 == true){
+     HexCount = HexCount + 1;
+  }
+
+
+    sData.data = HexCount;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    if (result == ESP_OK) { Serial.println("Sent with success");}
+    else {Serial.println("Error sending the data");}
+
+    if (sData.data == 3){
+      //RESET
+      delay(3000);
+      hex1 = false;
+      hex2 = false;
+      hex3 = false;
+      sData.data = 0;
+    // esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    // if (result == ESP_OK) { Serial.println("Sent with success");}
+    // else {Serial.println("Error sending the data");}
+    }
 
 }
 
@@ -219,12 +234,15 @@ void setup() {
     mfrc522[reader].PCD_DumpVersionToSerial();
   }
 
+  //Initialize Data as 0;
+  sData.data = 0;
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
 
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
+  //This resets the counter on the main webpage.
+  esp_err_t result2 = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
 
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  // asynctimer.setInterval([]() {sendData();},  5000);
 }
 
 
@@ -246,7 +264,7 @@ void loop() {
   }
 
   
-      for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+  for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     // Look for new cards
 
     if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
@@ -263,21 +281,23 @@ void loop() {
       Serial.println();
       Serial.println(uidText);
 
-      if(uidText == "901fd026"){
-        Serial.println("reader1");
+            if(uidText == "9093a226" && reader==0){
+        Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
+        sendData();
       } 
 
-      if(uidText == "31cc8b") 
-      {
-        Serial.println("reader2");
+      if(uidText == "90d0126" && reader==1){
+        Serial.println("Pin 14 Reader 2 Triggered.");
         hex2 = true;
-      }
-      if(uidText == "919a1f1d") 
-      {
-        Serial.println("reader3");
+        sendData();
+      } 
+
+            if(uidText == "90b99e26" && reader==2){
+        Serial.println("Pin 27 Reader 3 Triggered.");
         hex3 = true;
-      }
+        sendData();
+      } 
       
       //  Serial.print(F("PICC type: "));
        MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
@@ -287,9 +307,6 @@ void loop() {
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD
       mfrc522[reader].PCD_StopCrypto1();
-      sData.data = 1;
-      sendData();
-      sData.data = 0;
     } //if (mfrc522[reader].PICC_IsNewC
   } //for(uint8_t reader
   delay(50);

@@ -177,9 +177,26 @@ void startespnow(){
 
 void sendData()
 {
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-      if (result == ESP_OK) { Serial.println("Sent with success");}
-      else {Serial.println("Error sending the data");}
+  int HexCount = 0;
+
+  if (hex1 == true){
+    HexCount = HexCount + 1;
+  }
+
+    sData.data = HexCount;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    if (result == ESP_OK) { Serial.println("Sent with success");}
+    else {Serial.println("Error sending the data");}
+
+    if (sData.data == 1){
+      //RESET
+      delay(3000);
+      hex1 = false;
+      sData.data = 0;
+    // esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    // if (result == ESP_OK) { Serial.println("Sent with success");}
+    // else {Serial.println("Error sending the data");}
+    }
 
 }
 

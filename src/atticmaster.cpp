@@ -54,8 +54,9 @@ uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
+
 /* ESP Async Timer */
-AsyncTimer asynctimer(30);
+AsyncTimer asynctimer(35);
 
 /* WiFi Credentials */
 const char* ssid = WIFI_SSID; // SSID
@@ -71,13 +72,19 @@ esp_now_peer_info_t peerInfo;
 String success;
 int emergencyFlag = 0;
 int emergencyTrigger = 0;
+int timeout2 = 0;
 const unsigned long emergencyButtonTimeout = 5000;
 
 bool RFID1_status = false;
 bool RFID2_status = false;
 bool RFID3_status = false;
 bool RFID4_status = false;
+
+bool RFID1_armed = false;
+
+
 bool DOORTOUCH = false;
+
 
 int readingcounter = 0;
 
@@ -102,18 +109,25 @@ void getTouch(){
 
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
 
-  if(filteredValue > 3900){
+  if(filteredValue > 3800){
     Serial.printf("ABOVE THRESHOLD\n\n\n\n");
-    readingcounter +=25;
+    readingcounter +=80; // trigger in 2 ticks.
   }
 
 
-    if (readingcounter > 100) {
+    if (readingcounter >= 100) {
       readingcounter = 0;
-       Serial.printf("ABOVE THRESHOLD\n\n\n\n");
+       Serial.printf("TRIGGERD THRESHOLD\n\n\n\n");
       DOORTOUCH = true;
+      Serial.println("Human Chain Touch Detected!");
+      sData.origin = atticmaster;
+      sData.sensor = attic_humanchain;
+      sData.data = 1;
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+
     }
     readingcounter -= 5;
+
     if (readingcounter < 0) readingcounter = 0;
 }
 
@@ -130,7 +144,7 @@ void statusAlive(){
 void triggerDoor(int pin, int timeout){
   digitalWrite(pin, LOW);
   Serial.println("Door Opened");
-  delay(15);
+  // delay(15);
   asynctimer.setTimeout([pin]() {
       digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
@@ -153,26 +167,64 @@ void IRAM_ATTR emergency(){
 /* ESP-NOW Callback Functions*/
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
-  Serial.println("Data Recieved...");
-  
+    //RESET THE WHOLE ROOM.
+  if ((rData.origin == masterserver) && (rData.data == 66)){
+    ESP.restart();
+  }
+
   
   // Forward Data from Sensors to Master Server
   if (rData.origin != masterserver){
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
   }
 
+  /*    STATUS UPDATES    */
 
-    if (rData.origin == masterserver && rData.sensor == attic_humanchain && rData.data == 1){
-      // triggerDoor(5, 2000);
-      // triggerDoor(18, 2000);
-      // triggerDoor(19, 2000);
-      // triggerDoor(21, 2000);
+    if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1){
+    RFID1_status = true;
+    //Send an Updated 'flag' to master
+    rData.data = 100;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  }
+
+
+
+  if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 2){
+    RFID2_status = true;
+    //Send an Updated 'flag' to master
+    rData.data = 100;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  }
+
+
+  if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3 && rData.data == 3){
+    RFID3_status = true;
+    //Send an Updated 'flag' to master
+    rData.data = 100;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  }
+
+
+    //RFID 4 is 5/6 because one of them is a bit wonky.
+    if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4 && rData.data >= 5){
+    RFID4_status = true;
+    //Send an Updated 'flag' to master
+    rData.data = 100;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  }
+
+
+    if (rData.origin == masterserver && rData.sensor == attic_humanchain && rData.data){
+      triggerDoor(5, 2000);
+      triggerDoor(18, 2000);
+      triggerDoor(19, 2000);
+      triggerDoor(21, 2000);
     }
 
     if (rData.origin == masterserver && rData.sensor == attic_bike){
@@ -181,9 +233,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
       if(rData.data == 0) ledcWrite(1, (4000));
     }
 
-    if (rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 1){
-      // triggerDoor(5, 2000);
-    }
 
 
      if(rData.origin == attic_bike && rData.sensor == attic_bike)
@@ -191,19 +240,10 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     //Send Data to LED to light up appropriately
       //4000 / 100 = 40
       ledcWrite(1, ((40)*rData.data));
-      Serial.println(rData.data);
+      // Serial.println(rData.data);
 
     }
 
-
-
-
-
-
-
-
-
-  // Add your code here to do something with the data recieved
 
 }
 
@@ -267,6 +307,7 @@ void startespnow(){
     Serial.println("Failed to add peer");
     return;
   }
+
 
 }
 
@@ -399,31 +440,44 @@ void setup() {
   digitalWrite(15,HIGH);
 
 
-    //  asynctimer.setInterval([]() {
-    //   statusAlive();
-    //   ;},  1000);
+  asynctimer.setInterval([]() {
+  statusAlive();
+  ;},  2000);
 
 
-    int timeout = normalDelay*24;
-    // Serial.println(timeout);
-    // Serial.println("MorseLooooop Trigger0");
-     
-    //  asynctimer.setInterval([]() {
-    //   Serial.println("MorseLooooop Trigger");
-    //   morseloop();
-    // }, timeout);
+  //UPDATE ARMED to NOT ARMED WHEN RESTARTING ON DASHBOARD
+  sData.data = 0;
+  sData.origin = attic_RFID1;
+  sData.sensor = attic_RFID1;
+  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
 
-    asynctimer.setInterval([]() {getTouch();},  250);
-    asynctimer.setInterval([]() {Serial.println(readingcounter);},  1000);
+  sData.origin = attic_RFID2;
+  sData.sensor = attic_RFID2;
+  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+
+  sData.origin = attic_RFID3;
+  sData.sensor = attic_RFID3;
+  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+
+  sData.origin = attic_RFID4;
+  sData.sensor = attic_RFID4;
+  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+
+  //End Update and Initialize.
 
 
-     emergencyTrigger = millis();
+
+int timeout = normalDelay*24;
+
+asynctimer.setInterval([]() {getTouch();},  250);
+emergencyTrigger = millis();
+timeout2 = millis();
   }
 
 
 
 
-int timeout = millis();
+
 void loop() {
 
     if(morsebootflag == 1)
@@ -436,18 +490,13 @@ void loop() {
     morsebootflag = 2;
   }
 
+  
   // THESE TWO MUST BE MERGED WHEN THE PUZZLE IS COMPLETE
-if (DOORTOUCH){
+if ((DOORTOUCH == true) && (RFID3_status == true) && (RFID2_status == true) && (RFID4_status == true)){
   //Open the marvelous door.
 // ***************************************************************** EDIT THIS LATER TO INCLUDE THE BOOL FROM THE PUZZLES
-  Serial.println("Human Chain Touch Detected!");
-  sData.origin = attic_humanchain;
-  sData.sensor = attic_humanchain;
-  sData.data = 1;
-  //Send data to masterserver
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
 
-    DOORTOUCH = false;
+  DOORTOUCH = false;
   triggerDoor(5, 2000);
   delay(100);
   triggerDoor(18, 2000);
@@ -455,7 +504,25 @@ if (DOORTOUCH){
   triggerDoor(19, 2000);
   delay(100);
   triggerDoor(21, 2000);
-  delay(100);
+
+  sData.origin = atticmaster;
+  sData.sensor = attic_humanchain;
+  sData.data = 111;
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+
+  // delay(100);
+  }
+  else{
+    DOORTOUCH = false;
+
+    if (millis() - timeout2 >= 1000)
+    {
+    timeout2 = millis();
+      sData.origin = atticmaster;
+      sData.sensor = attic_humanchain;
+      sData.data = 0;
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    }
   }
 
 

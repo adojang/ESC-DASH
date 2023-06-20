@@ -55,16 +55,28 @@
 // #define SS_PIN  5  // ESP32 pin GPIO5 
 #define RST_PIN 5 // ESP32 pin GPIO21
 
-#define SS_1_PIN        27         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2
-#define SS_2_PIN        26          // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
-#define SS_3_PIN        25
-#define SS_4_PIN        33
-#define SS_5_PIN        32
-#define SS_6_PIN        13
+
+
+// #define SS_1_PIN        27x         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2
+// #define SS_2_PIN        26x          // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
+// #define SS_3_PIN        25x // Exclusion
+// #define SS_4_PIN        33x
+// #define SS_5_PIN        32 // 14 originally
+// #define SS_6_PIN        13
+
+#define SS_1_PIN        13         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2
+#define SS_2_PIN        25 //EXCLUDED         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
+#define SS_3_PIN        26 
+#define SS_4_PIN        27
+#define SS_5_PIN        32 // 14 originally
+#define SS_6_PIN        33
 
 bool hex1 = false;
-bool hex2 = false;
+bool hex2 = true;
 bool hex3 = false;
+bool hex4 = false;
+bool hex5 = false; // excluded for now.
+bool hex6 = false;
 
 #define NR_OF_READERS   6
 
@@ -186,9 +198,53 @@ void startespnow(){
 
 void sendData()
 {
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-      if (result == ESP_OK) { Serial.println("Sent with success");}
-      else {Serial.println("Error sending the data");}
+  int HexCount = 0;
+
+  if (hex1 == true){
+    HexCount = HexCount + 1;
+  }
+
+  if (hex2 == true){
+     HexCount = HexCount + 1;
+  }
+  
+  if (hex3 == true){
+     HexCount = HexCount + 1;
+  }
+
+  if (hex4 == true){
+     HexCount = HexCount + 1;
+  }
+
+  if (hex5 == true){
+     HexCount = HexCount + 1;
+  }
+
+  if (hex6 == true){
+     HexCount = HexCount + 1;
+  }
+
+
+    sData.data = HexCount;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    if (result == ESP_OK) { Serial.println("Sent with success");}
+    else {Serial.println("Error sending the data");}
+
+    //Correct for 5/6 Later, if we ever get there.
+    if (sData.data == 5){
+      //RESET
+      delay(3000);
+      hex1 = false;
+      hex2 = false;
+      hex3 = false;
+      hex4 = false;
+      hex5 = false;
+      hex6 = false;
+      sData.data = 0;
+    // esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    // if (result == ESP_OK) { Serial.println("Sent with success");}
+    // else {Serial.println("Error sending the data");}
+    }
 
 }
 
@@ -258,28 +314,69 @@ void loop() {
     // Look for new cards
 
     if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
-      Serial.print(F("Reader "));
-      Serial.print(reader);
+      // Serial.print(F("Reader "));
+      // Serial.print(reader);
       // Show some details of the PICC (that is: the tag/card)
-      Serial.print(F(": Card UID:"));
+      // Serial.print(F(": Card UID:"));
       dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
+      
+      String uidText = "";
+      for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
+        uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
+      }
       Serial.println();
-      Serial.print(F("PICC type: "));
-      MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
-      Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
+      Serial.println(uidText);
 
-      sData.data = 1;
-      sendData();
-      sData.data = 0;
+            if(uidText == "90bd4a26" && reader==0){
+        Serial.println("Pin 13 Reader 0 Triggered.");
+        hex1 = true;
+        sendData();
+      } 
+
+      //TEMP Excluded by Wendy's Request (Bottom one)
+
+      // if(uidText == "c32f19a0" && reader==1){
+      //   Serial.println("Pin 25 Reader 2 Triggered.");
+      //   hex2 = true;
+      //   sendData();
+      // } 
+
+      if(uidText == "901fd026" && reader==1){
+        Serial.println("Pin 26 Reader 1 Triggered.");
+        hex3 = true;
+        sendData();
+      }
+
+                  if(uidText == "932f92d" && reader==2){
+        Serial.println("Pin 27 Reader 2 Triggered.");
+        hex4 = true;
+        sendData();
+      } 
+
+                  if(uidText == "31cc8b" && reader==3){
+        Serial.println("Pin 32 Reader 5 Triggered.");
+        hex5 = true;
+        sendData();
+      } 
+
+                  if(uidText == "c3777fd" && reader == 4){
+        Serial.println("Pin 33 Reader 5 Triggered.");
+        hex6 = true;
+        sendData();
+      } 
+      
+      //  Serial.print(F("PICC type: "));
+       MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
+      //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
+
       // Halt PICC
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD
       mfrc522[reader].PCD_StopCrypto1();
     } //if (mfrc522[reader].PICC_IsNewC
   } //for(uint8_t reader
-  asynctimer.handle();
+  delay(25);
 
-}
 
 
 
@@ -288,3 +385,5 @@ void loop() {
 
 
   //Required for the asynctimer to work.
+  asynctimer.handle();
+}

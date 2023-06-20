@@ -82,6 +82,12 @@ uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
 // Template
 uint8_t m_temp_TEMPLATE[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xEE};
 
+// RFID Readers
+
+// uint8_t m_RFID1[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, attic_RFID1};
+// uint8_t m_RFID2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, attic_RFID2};
+// uint8_t m_RFID3[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA9};
+// uint8_t m_RFID4[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, attic_RFID4};
 
 
 /* ESP Async Timer */
@@ -102,8 +108,12 @@ esp_now_peer_info_t peerInfo;
 #define CARDLEN 8
 
 /*Testing*/
-Card touchval(&dashboard, GENERIC_CARD, "Touch Value");
-Card RFIDval(&dashboard, GENERIC_CARD, "RFIDval Value");
+Card touchval(&dashboard, GENERIC_CARD, "If these numbers stop changing, restart everything.");
+Card restart_attic(&dashboard, BUTTON_CARD, "Reset Attic"); //momentary
+Card restart_master(&dashboard, BUTTON_CARD, "Restart Control"); //momentary
+Card DOORTOUCH(&dashboard, GENERIC_CARD, "DoorTouch"); //momentary
+// Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
+
 
 /* Attic */
 Card humanchain_card(&dashboard, BUTTON_CARD, "Open Human Chain Door"); // momentary
@@ -154,10 +164,10 @@ Card train_status(&dashboard, STATUS_CARD, "Train  Status", "success");
 Card tomb_status(&dashboard, STATUS_CARD, "Tomb Status", "success");
 Card attic_status(&dashboard, STATUS_CARD, "Attic Status", "success");
 
-Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
-Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
-Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
-Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4 Status", "idle");
+Card attic_rfid1(&dashboard, GENERIC_CARD, "RFID1 Status (Not Working Yet, Bypassed)");
+Card attic_rfid2(&dashboard, GENERIC_CARD, "RFID2 Status");
+Card attic_rfid3(&dashboard, GENERIC_CARD, "RFID3 Status");
+Card attic_rfid4(&dashboard, GENERIC_CARD, "RFID4 Status");
 
 
 /* Contained inside tabs*/
@@ -196,69 +206,50 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     Serial.print("Data Origin: ");
     Serial.println(rData.origin);
 
-    if(rData.origin == attic_humanchain && rData.sensor == attic_humanchain)
-    {
+    if(rData.origin == attic_humanchain && rData.sensor == attic_humanchain){
+
       touchval.update(rData.data);
+      dashboard.sendUpdates();
+    }
+
+    if(rData.origin == atticmaster && rData.sensor == attic_humanchain)
+    {
+      DOORTOUCH.update(rData.data);
+      dashboard.sendUpdates();
+    }
+
+
+    if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1)
+    {
+      attic_rfid1.update(rData.data);
+      if (rData.data == 100) attic_rfid1.update("COMPLETE");
       dashboard.sendUpdates();
     }
 
     if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
     {
-      RFIDval.update(rData.data);
-      dashboard.sendUpdates();
-    }
-    
-    if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1)
-    {
-      attic_rfid1.update("ARMED", "success");
-      asynctimer.setTimeout([]() {
-    attic_rfid1.update("Idle", "danger");
-    dashboard.sendUpdates();
-      }, 3000);
+      attic_rfid2.update(rData.data);
+      if (rData.data == 100) attic_rfid2.update("COMPLETE");
       dashboard.sendUpdates();
     }
 
-        if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 1)
+    if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3)
     {
-      attic_rfid2.update("ARMED", "success");
-      asynctimer.setTimeout([]() {
-    attic_rfid2.update("Idle", "danger");
-    dashboard.sendUpdates();
-      }, 3000);
+      attic_rfid3.update(rData.data);
+    if (rData.data == 100) attic_rfid3.update("COMPLETE");
       dashboard.sendUpdates();
     }
 
-    if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3 && rData.data == 1)
+    if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4)
     {
-      attic_rfid3.update("ARMED", "success");
-      asynctimer.setTimeout([]() {
-    attic_rfid3.update("Idle", "danger");
-    dashboard.sendUpdates();
-      }, 3000);
+      attic_rfid4.update(rData.data);
+      if (rData.data == 100) attic_rfid4.update("COMPLETE");
       dashboard.sendUpdates();
     }
 
-        if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4 && rData.data == 1)
-    {
-      attic_rfid4.update("ARMED", "success");
-      asynctimer.setTimeout([]() {
-    attic_rfid4.update("Idle", "danger");
-    dashboard.sendUpdates();
-      }, 3000);
-      dashboard.sendUpdates();
-    }
+       
 
-    //Status Check for Main Control Room Sensors I AM NOT SURE IF THIS WORKS CANCEL CANCEL CANCEL YETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-    if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 0)
-    {
-      asynctimer.cancel(attictimeout);
-      attic_status.update("Connected", "success");
-      dashboard.sendUpdates();
-      
-    attictimeout = asynctimer.setTimeout([]() {
-    attic_status.update("Disconnected", "danger");
-    dashboard.sendUpdates();
-  }, 5000);
+  
 
    if(rData.origin == attic_bike && rData.sensor == attic_bike)
     {
@@ -266,37 +257,16 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     dashboard.sendUpdates();
     }
 
-    if(rData.origin == attic_humanchain && rData.sensor == attic_humanchain && rData.data == 1)
+
+        if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 0)
     {
-    humanchain_card.update("Open Human Chain Door", "success");
-    dashboard.sendUpdates();
+ //Set Status as Alive:
     }
+   
 
-
-  if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1)
-    {
-      attic_rfid1.update("Connected", "success");
-      dashboard.sendUpdates();
-
-      //After 5s, set it to zero again.
-      attictimeout = asynctimer.setTimeout([]() {
-      attic_rfid1.update("Waiting", "idle");
-      dashboard.sendUpdates();
-    }, 5000);
+ 
   }
 
-      digitalWrite(2,HIGH);
-      asynctimer.setTimeout([]() {
-        for (int i=0;i<8;i++){
-          digitalWrite(2,LOW);
-          delay(75);
-          digitalWrite(2,HIGH);
-          delay(75);
-        }
-        digitalWrite(2,LOW);
-      }, 1000);
-  }
-}
 
 
 // END STATUS CHECK
@@ -407,19 +377,35 @@ void buttonTimeout(Card* cardptr, int timeout = 3000){
 void startButtonCB(){
 
 
-  // /* TEST CALLBACK FUNCTION FOR BLUE LED BUTTON*/
-  // testnetwork.attachCallback([](int value){
-  // testnetwork.update(value);
-  // Serial.printf("TEST BUTTON TRIGGERED: %d\n");
-  // sData.data=value;
+/* Reset Button Attic */
+restart_attic.attachCallback([](int value){
+buttonTimeout(&restart_attic);
+Serial.printf("Attic Restart Triggered\n");
+sData.origin = masterserver;
+sData.data = 66;
+esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
 
-  // esp_err_t result = esp_now_send(temp_TEMPLATE, (uint8_t *) &sData, sizeof(sData));
-  
-  // if (result == ESP_OK) { Serial.println("Sent with success");}
-  // else {Serial.println("Error sending the data");}
-  
-  // dashboard.sendUpdates();
-  // });
+sData.data = 0;
+
+
+
+
+
+
+});
+
+
+
+
+/* Restart This Master Server*/
+
+restart_master.attachCallback([](int value){
+buttonTimeout(&restart_master);
+Serial.printf("Master Restart Triggered\n");
+ESP.restart();
+
+});
 
 
 /* 0 - HumanChainDoor */
@@ -438,14 +424,21 @@ sData.data = 0;
 /* 0xA1 - bikelight - THIS PUZZLE IS NOT MOMENTARY */
 bike_card.attachCallback([](int value){
 bike_card.update(value);
-Serial.printf("Bike Light Enabled\n");
-sData.origin = masterserver;
-sData.sensor = attic_bike;
-sData.data = 1;
-esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-sData.data = 0;
-dashboard.sendUpdates();
+
+     
+        sData.origin = masterserver;
+        sData.sensor = attic_humanchain;
+        sData.data = 1;
+      esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+
+// Serial.printf("Bike Light Enabled\n");
+// sData.origin = masterserver;
+// sData.sensor = attic_bike;
+// sData.data = 1;
+// esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+// if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
+// sData.data = 0;
+// dashboard.sendUpdates();
 });
 
 /* 0xA2 - grandfatherclock */
@@ -623,7 +616,23 @@ void setup() {
   //Signaling LED
     pinMode(2, OUTPUT);
   digitalWrite(2,LOW);
+
+  // Enable relay. This might be an issue. DANGER LINE DANGER LINE DANGINER LINE DANGER LINE DANGER LINE DANGINER LINE 
+
+  pinMode(5, OUTPUT);
+  pinMode(18, OUTPUT);
+  pinMode(19, OUTPUT);
+  pinMode(21, OUTPUT);
+  digitalWrite(5, HIGH);
+  delay(250);
+  digitalWrite(18, HIGH);
+  delay(250);
+  digitalWrite(19, HIGH);
+  delay(250);
+  digitalWrite(21, HIGH);
   
+// DANGER LINE DANGER LINE DANGINER LINE DANGER LINE DANGER LINE DANGINER LINE DANGER LINE DANGER LINE DANGINER LINE
+
   /* Start Wifi and ESP-DASH*/
   startWifi();
   configDash();
