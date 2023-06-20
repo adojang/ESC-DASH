@@ -190,7 +190,6 @@ void startespnow(){
 }
 
 
-int val = 0;
 void setup() {
   Serial.begin(115200);
   startwifi();
@@ -225,7 +224,11 @@ void setup() {
   digitalWrite(33, LOW);
     pinMode(25, OUTPUT);
   digitalWrite(25, LOW);
-
+  /*
+  for(int j=0;j<99;j++){
+    samples[j]=40;
+  }
+  */
 
   //    asynctimer.setInterval([]() {
   //     morseloop();
@@ -233,17 +236,49 @@ void setup() {
   }
 
 
-
-
+float samples1[50];
+float averages[10] = {40,40,40,40,40,40,40,40,40,40};
+int val = 0;
+float sum;
+int avg1=40;
+int avg2=40;
+int ScannedSuccessful=0;
 void loop() {
 
   //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
+  for(int j=0;j<25;j++){
 
   val = hallRead();
   // print the results to the serial monitor
-  Serial.println(val); 
-  delay(500);
+  //Serial.println(val); 
+  samples1[j]=val;
+  sum=sum+samples1[j];
+  avg2 = int(sum/j);
+  delay(5);
+  }
 
+  sum=0;
 
+  for(int k=0;k<8;k++){
+    averages[k+1]=averages[k];
+  }
+  averages[0]=avg2;
+  avg1=averages[9];
+  Serial.print("Avg1:       ");Serial.print(avg1);Serial.print("   ");
+  
+  Serial.print("Avg2:       ");Serial.print(avg2);Serial.print("     ScannedSuccessful: ");
+ 
+  if(avg2<=(avg1-10)){
+    ScannedSuccessful=1;
+  }else if(avg2>=(avg1+10)){
+    ScannedSuccessful=1;
+  }else{ScannedSuccessful=0;}
+
+  
+
+  Serial.println(ScannedSuccessful);
+ 
   asynctimer.handle();
+  delay(10);
 }
+
