@@ -91,7 +91,7 @@ uint8_t m_temp_TEMPLATE[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xEE};
 
 
 // EMERGENCY
-int emergencyTrigger = 0;
+unsigned long emergencyTrigger = 0;
 
 /* ESP Async Timer */
 AsyncTimer asynctimer;
