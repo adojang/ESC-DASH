@@ -194,17 +194,17 @@ void sendData()
   sData.sensor = train_keypad;
   sData.data = 1;
 
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-      if (result == ESP_OK) { Serial.println("Sent with success");}
-      else {Serial.println("Error sending the data");}
-            digitalWrite(2,HIGH);
-            for (int i=0;i<8;i++){
-              digitalWrite(15,HIGH);
-              delay(75);
-              digitalWrite(15,LOW);
-              delay(75);
-            }
-            digitalWrite(15,LOW);
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+
+
+  digitalWrite(2,HIGH); // Turn of Red LED
+  for (int i=0;i<8;i++){ // Flash Green LED
+    digitalWrite(15,LOW);
+    delay(100);
+    digitalWrite(15,HIGH);
+    delay(100);
+  }
+  digitalWrite(15,LOW); // Turn on Green LED Steady.
 }
 
 void setup()
@@ -214,6 +214,8 @@ void setup()
   startespnow();
 
   // Make any Edits you need to add below this line ------------------------------
+
+
 
   pinMode(2, OUTPUT);
   pinMode(15, OUTPUT);
@@ -225,6 +227,10 @@ void setup()
 }
 
 void flashRED(){
+  sData.origin = train_keypad;
+  sData.sensor = train_keypad;
+  sData.data = 2;
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
   digitalWrite(15,HIGH); // Disable Solid Green
   //Flash Red LED Many Times
   for (int i=0;i<8;i++){
