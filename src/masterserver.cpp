@@ -90,6 +90,9 @@ uint8_t m_temp_TEMPLATE[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xEE};
 // uint8_t m_RFID4[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, attic_RFID4};
 
 
+// EMERGENCY
+int emergencyTrigger = 0;
+
 /* ESP Async Timer */
 AsyncTimer asynctimer;
 
@@ -175,10 +178,23 @@ Card attic_rfid4(&dashboard, GENERIC_CARD, "RFID4 Status");
 // Card tomb_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 // Card train_time(&dashboard, PROGRESS_CARD, "Time Remaining", "m", 0, 60);
 
-
+int keypadtrigger = 0;
 
 //Global Status
 // int global_status;
+
+
+void triggerDoor(int pin, int timeout){
+  digitalWrite(pin, LOW);
+  Serial.println("Door Opened");
+  // delay(15);
+  asynctimer.setTimeout([pin]() {
+      digitalWrite(pin, HIGH);
+      Serial.println("Door Closed");
+    }, 5000);
+}
+
+
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -205,6 +221,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     Serial.println("Data Recieved from Somewhere");
     Serial.print("Data Origin: ");
     Serial.println(rData.origin);
+
+    if(rData.origin == train_keypad && rData.sensor == train_keypad){
+    keypadtrigger = rData.data;
+
+    }
 
     if(rData.origin == attic_humanchain && rData.sensor == attic_humanchain){
 
@@ -572,42 +593,6 @@ void startWifi()
 }
 
 
-//This uses a delay() implemenation and may slow down other parts of the code.
-// void serverstatus(){
-//   sData.data = 0;
-//   sData.sensor = 0;
-
-//   //Train
-//   esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
-//   delay(100);
-
-//   if (!global_status) {
-//     train_status.update("Disconnected", "danger");
-//     }
-//   else{
-//     train_status.update("Connected", "success");
-//   }
-
-//   esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
-//   delay(100);
-//   if (!global_status) {
-//     tomb_status.update("Disconnected", "danger");
-//     }
-//   else{
-//     tomb_status.update("Connected", "success");
-//   }
-
-//     esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-//    delay(100);
-//   if (!global_status) {
-//     attic_status.update("Disconnected", "danger");
-//     }
-//   else{
-//     attic_status.update("Connected", "success");
-//   }
-//   //  global_status = 0;
-
-//   dashboard.sendUpdates();
 // }
 
 
@@ -617,8 +602,13 @@ void setup() {
     pinMode(2, OUTPUT);
   digitalWrite(2,LOW);
 
-  // Enable relay. This might be an issue. DANGER LINE DANGER LINE DANGINER LINE DANGER LINE DANGER LINE DANGINER LINE 
+  
+  //Emergency Buttons.
+  pinMode(4,OUTPUT);
+  digitalWrite(4,HIGH);
+  pinMode(25,INPUT_PULLDOWN);
 
+// Enable relay. This might be an issue. DANGER LINE DANGER LINE DANGINER LINE DANGER LINE DANGER LINE DANGINER LINE   
   pinMode(5, OUTPUT);
   pinMode(18, OUTPUT);
   pinMode(19, OUTPUT);
@@ -644,11 +634,47 @@ void setup() {
     //   serverstatus();
     // }, 5000);
 
-
+  emergencyTrigger = millis();
 }
 
 
 void loop() {
+
+
+//Emergency Escape Button
+if ((digitalRead(25)) && (millis() - emergencyTrigger) >= 8000)
+  {
+    emergencyTrigger = millis();
+  Serial.println("OH NO HERE WE GO");
+  
+  triggerDoor(5, 8000);
+  triggerDoor(18, 8000);
+  triggerDoor(19, 8000);
+  triggerDoor(21, 8000);
+
+  delay(50);
+}
+
+if (keypadtrigger == 1) // Unlock the Door Steady State
+  {
+  keypadtrigger = 0;
+  digitalWrite(5, LOW);
+  digitalWrite(18, LOW);
+  digitalWrite(19, LOW);
+  digitalWrite(21, LOW);
+  delay(50);
+}
+
+if (keypadtrigger == 2) // Lock the Door Steady State
+  {
+  keypadtrigger = 0;
+  digitalWrite(5, HIGH);
+  digitalWrite(18, HIGH);
+  digitalWrite(19, HIGH);
+  digitalWrite(21, HIGH);
+  delay(50);
+}
+
 
 
 

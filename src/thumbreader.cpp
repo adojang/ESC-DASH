@@ -93,13 +93,13 @@ void sendDataLED(){
 
 
 
-void triggerDoor(int pin, int timeout){
+void triggerDoor(int pin){
   digitalWrite(pin, LOW);
   Serial.println("Door Opened");
   asynctimer.setTimeout([pin]() {
       digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
-    }, 5000);
+    }, 2000);
   
   
   // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
@@ -196,43 +196,8 @@ void setup() {
   startespnow();
 
   pinMode(2, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(18, OUTPUT);
-  pinMode(19, OUTPUT);
-  pinMode(21, OUTPUT);
-  digitalWrite(5, HIGH);
-  delay(250);
-  digitalWrite(18, HIGH);
-  delay(250);
-  digitalWrite(19, HIGH);
-  delay(250);
-  digitalWrite(21, HIGH);
-
-
-  // LIGHT TEST
-
-  ledcSetup(0, 300, 12); // Lightbulb
-  ledcSetup(1, 300, 12); // Bike LED
-  ledcAttachPin(27, 0); // Lightbulb
-  ledcAttachPin(26, 1);
-  ledcWrite(0, 0);
-  ledcWrite(1, 0);
-
-  analogReadResolution(12);
-  //GND Pin for PWM Controller for Fan
-  pinMode(33, OUTPUT);
-  digitalWrite(33, LOW);
-    pinMode(25, OUTPUT);
-  digitalWrite(25, LOW);
-  /*
-  for(int j=0;j<99;j++){
-    samples[j]=40;
-  }
-  */
-
-  //    asynctimer.setInterval([]() {
-  //     morseloop();
-  //   }, normalDelay*24);
+  pinMode(13,OUTPUT);
+  digitalWrite(13,HIGH);
   }
 
 
@@ -278,6 +243,9 @@ void loop() {
 
   Serial.println(ScannedSuccessful);
  
+ if(ScannedSuccessful == true){
+  triggerDoor(13); // 5s timeout til resets.
+ }
   asynctimer.handle();
   delay(10);
 }

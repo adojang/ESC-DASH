@@ -70,11 +70,8 @@ byte colPins2[COLS] = {27, 12, 25};   // connect to the column pinouts of the ke
 Adafruit_Keypad customKeypad = Adafruit_Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 Adafruit_Keypad customKeypad2 = Adafruit_Keypad(makeKeymap(keys), rowPins2, colPins2, ROWS, COLS);
 
-
-
-
 // REPLACE WITH THE MAC Address of your receiver
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01}; // Address of Room Master
+uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Room Master
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 /* ESP Async Timer */
@@ -94,15 +91,15 @@ AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
 
 /*Keypad Password */
-const String correctSequence = "1234";
+const String correctSequence = "1617";
 String enteredSequence = "";
 unsigned long lastKeyPressTimestamp = 0;
-const unsigned long resetTimeout = 5000; // 20 seconds
+const unsigned long resetTimeout = 10000; // 10 seconds
 
-const String correctSequence2 = "1234";
+const String correctSequence2 = "1855";
 String enteredSequence2 = "";
 unsigned long lastKeyPressTimestamp2 = 0;
-const unsigned long resetTimeout2 = 5000; // 20 seconds
+const unsigned long resetTimeout2 = 10000; // 10 seconds
 
 
 /* ESP-NOW Callback Functions*/
@@ -200,14 +197,14 @@ void sendData()
       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
       if (result == ESP_OK) { Serial.println("Sent with success");}
       else {Serial.println("Error sending the data");}
-
+            digitalWrite(2,HIGH);
             for (int i=0;i<8;i++){
               digitalWrite(15,HIGH);
               delay(75);
               digitalWrite(15,LOW);
               delay(75);
             }
-            digitalWrite(15,HIGH);
+            digitalWrite(15,LOW);
 }
 
 void setup()
@@ -220,22 +217,27 @@ void setup()
 
   pinMode(2, OUTPUT);
   pinMode(15, OUTPUT);
-  digitalWrite(2, HIGH);
-  digitalWrite(15,HIGH);
+  digitalWrite(2, LOW); // RED LED. LOW means ENABLED
+  digitalWrite(15,HIGH); // Green LED HIGH means DISABLED
 
   customKeypad.begin(); // Startup for Keypad
   customKeypad2.begin(); // Startup for Keypad
-  // asynctimer.setInterval([]() {
-  //     sendData();
-  //   }, 3000);
 }
 
-
+void flashRED(){
+  digitalWrite(15,HIGH); // Disable Solid Green
+  //Flash Red LED Many Times
+  for (int i=0;i<8;i++){
+  digitalWrite(2,LOW);
+  delay(100);
+  digitalWrite(2,HIGH);
+  delay(100);
+}
+digitalWrite(2,LOW); // Enable Solid RED LED.
+}
 
 void loop()
 {
-  // ... (keep the existing code before customKeypad.tick())
-
   customKeypad.tick();
   customKeypad2.tick();
 
@@ -252,13 +254,7 @@ void loop()
 
         } else {
           Serial.println("WRONG");
-            for (int i=0;i<8;i++){
-              digitalWrite(2,HIGH);
-              delay(75);
-              digitalWrite(2,LOW);
-              delay(75);
-            }
-            digitalWrite(2,HIGH);
+          flashRED();
         }
         enteredSequence = ""; // Reset the entered sequence after checking
       } else {
@@ -283,6 +279,7 @@ void loop()
           sendData();
         } else {
           Serial.println("WRONG");
+          flashRED();
         }
         enteredSequence2 = ""; // Reset the entered sequence after checking
       } else {
