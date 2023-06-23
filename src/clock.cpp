@@ -22,9 +22,8 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "thumbreader"
-#define MACAD 0xC1 // Refer to Table in Conventions
-
+#define NAME "clock"
+#define MACAD 0xA2 // Refer to Table in Conventions
 
 
 /* Kernal*/
@@ -48,84 +47,57 @@
 #include <AsyncElegantOTA.h>
 
 
+#include <Wire.h>
+#include <VL53L0X.h>
 
+VL53L0X sensor;
+
+const int inPin = 15;
+int servoPin = 13;
+
+int sens1 = 0; 
+int sens2 = 0; 
+int sequence = 0;
+unsigned long t = 0;
+int servoPos = 0;
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
+
 /* ESP Async Timer */
-AsyncTimer asynctimer;
+AsyncTimer asynctimer(35);
 
 /* WiFi Credentials */
 const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
-
-
-
-
-
-
  dataPacket sData; // data to send
  dataPacket rData; // data to recieve
 
 /* Setup */
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
-String success;
 
-// bool opendoor1 = false;
-// bool opendoor2 = false;
-// bool opendoor3 = false;
-// bool opendoor4 = false;
-
-//Fast Flash to show SENT Data Succesfully
-void sendDataLED(){
-  // If it works... it works...
-  digitalWrite(2,HIGH);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  200);
-  asynctimer.setTimeout([]() {digitalWrite(2,HIGH);},  400);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  600);
-}
-
-
-
-void opensesame(int pin){
-  digitalWrite(pin, LOW);
-  Serial.println("Door Opened");
-  asynctimer.setTimeout([pin]() {
-      digitalWrite(pin, HIGH);
-      Serial.println("Door Closed");
-    }, 3000);
-  
-  
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-
-}
-
-
-
-/* ESP-NOW Callback Functions*/
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
-  Serial.println("Data Recieved...");
-  //TRIGGER LATCH FOR A 3 SECONDS.
+  if (rData.origin == masterserver && rData.sensor == masterserver){
+    if(rData.data == 1) {activateServo();} // Manually Trigger Clock Servo
+
+    if(rData.data == 2) {reverseServo();} // Reverse Servo to Start
+  }
 
 
 }
-
-
-
- 
 
 void startwifi(){
 
@@ -133,15 +105,15 @@ void startwifi(){
   WiFi.softAP(NAME, "pinecones", 0, 1, 4);
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-
+  unsigned long wifitimeout = millis();
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(200);
     Serial.print(".");
+    if ((millis() - wifitimeout) > 10000) ESP.restart();
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
       Serial.printf("WiFi Failed!\n");
-      ESP.restart();
       return;
   }
   else{
@@ -151,6 +123,9 @@ void startwifi(){
    /* MDNS */
   if (!MDNS.begin(NAME)) {
         Serial.println("Error setting up MDNS responder!");
+        while(1) {
+            delay(1000);
+        }
     }
   Serial.println("mDNS responder started");
   Serial.printf("*** PROGRAM START ***\n\n");
@@ -184,70 +159,109 @@ void startespnow(){
     return;
   }
 
+
 }
 
+
+const int PWM_pin1 = 4; // PWM Pin
+const int PWM_pin2 = 5; // PWM Pin
 
 void setup() {
   Serial.begin(115200);
   startwifi();
   startespnow();
 
-  pinMode(2, OUTPUT);
-  pinMode(13,OUTPUT);
-  pinMode(18,OUTPUT);
-  digitalWrite(18,LOW);
-  pinMode(5,OUTPUT);
-  digitalWrite(5,HIGH);
-  digitalWrite(13,HIGH);
+  Wire.begin();
+  sensor.init();
+  sensor.setTimeout(500);
+  sensor.startContinuous();
+
+  pinMode(inPin, INPUT_PULLDOWN);
+
+  pinMode(PWM_pin1, OUTPUT);
+  pinMode(PWM_pin2, OUTPUT);
+  ledcAttachPin(PWM_pin1, 0);
+  ledcAttachPin(PWM_pin2, 1);
+  ledcSetup(0, 1000, 8);
+  ledcSetup(1, 1000, 8);
+  ledcWrite(0, 0);
+  ledcWrite(1, 0);
   }
 
-
-float samples1[50];
-float averages[10] = {40,40,40,40,40,40,40,40,40,40};
-int val = 0;
-float sum;
-int avg1=40;
-int avg2=40;
-int ScannedSuccessful=0;
-void loop() {
-
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  for(int j=0;j<25;j++){
-
-  val = hallRead();
-  // print the results to the serial monitor
-  //Serial.println(val); 
-  samples1[j]=val;
-  sum=sum+samples1[j];
-  avg2 = int(sum/j);
-  delay(5);
-  }
-
-  sum=0;
-
-  for(int k=0;k<8;k++){
-    averages[k+1]=averages[k];
-  }
-  averages[0]=avg2;
-  avg1=averages[9];
-  Serial.print("Avg1:       ");Serial.print(avg1);Serial.print("   ");
+void getReadings() {
   
-  Serial.print("Avg2:       ");Serial.print(avg2);Serial.print("     ScannedSuccessful: ");
- 
-  if(avg2<=(avg1-10)){
-    ScannedSuccessful=1;
-  }else if(avg2>=(avg1+10)){
-    ScannedSuccessful=1;
-  }else{ScannedSuccessful=0;}
+  sens2 = digitalRead(inPin);
 
-  
+  if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-  Serial.println(ScannedSuccessful);
- 
- if(ScannedSuccessful == true){
-  opensesame(13); // 5s timeout til resets.
- }
-  asynctimer.handle();
-  delay(10);
+  if (sensor.readRangeContinuousMillimeters()<100) {
+    sens1 = HIGH;
+  }
+  else {
+    sens1 = LOW;
+  }
+
+  Serial.print("sensor 1: ");
+  Serial.print(sens1);
+  Serial.print(", sensor 2: ");
+  Serial.println(sens2);
+  Serial.println(sensor.readRangeContinuousMillimeters());
 }
 
+void activateServo(){
+  // 7.5mm per second speed
+  // 6 seconds to go 45mm.
+  ledcWrite(0, 200);
+  ledcWrite(1, 0);
+  delay(3000);
+
+  ledcWrite(0, 0);
+  ledcWrite(1, 0);
+  delay(1000);
+}
+
+void reverseServo(){
+  ledcWrite(0, 0);
+  ledcWrite(1, 200);
+  delay(3000);
+
+  ledcWrite(0, 0);
+  ledcWrite(1, 0);
+  delay(1000);
+}
+
+void printSequence() {
+  Serial.print("Sequence: ");
+  Serial.println(sequence);
+}
+
+void loop() {
+  
+  getReadings();
+  printSequence();
+
+  //Sense1 is where the hole will be.
+  //Sense2 is where the hole is covered.
+
+  if ((sequence==0) && (sens1==HIGH) and (sens2==HIGH)){ // both are initially open.
+    sequence=1;
+  }
+  
+  if ((sequence==1) and (sens1==LOW) and (sens2==HIGH)) { // correct holes covered, trigger
+    sequence=0;
+    activateServo();
+  } 
+  else if ((sequence==1) and (sens1==LOW) and (sens2==LOW)) { // both are open
+    sequence=0;
+  }
+  printSequence();
+
+
+  delay(250); // changed from original 500;
+
+
+
+
+
+  asynctimer.handle();
+}

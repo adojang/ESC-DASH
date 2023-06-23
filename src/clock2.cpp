@@ -22,9 +22,8 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "thumbreader"
-#define MACAD 0xC1 // Refer to Table in Conventions
-
+#define NAME "clock2"
+#define MACAD 0xA8 // Refer to Table in Conventions
 
 
 /* Kernal*/
@@ -48,84 +47,43 @@
 #include <AsyncElegantOTA.h>
 
 
+#include <Wire.h>
+#include <VL53L0X.h>
 
+VL53L0X sensor;
+
+const int outPin = 15;
+int covered = 0;
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
+
 /* ESP Async Timer */
-AsyncTimer asynctimer;
+AsyncTimer asynctimer(35);
 
 /* WiFi Credentials */
 const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
-
-
-
-
-
-
  dataPacket sData; // data to send
  dataPacket rData; // data to recieve
 
 /* Setup */
 AsyncWebServer server(80);
 esp_now_peer_info_t peerInfo;
-String success;
 
-// bool opendoor1 = false;
-// bool opendoor2 = false;
-// bool opendoor3 = false;
-// bool opendoor4 = false;
-
-//Fast Flash to show SENT Data Succesfully
-void sendDataLED(){
-  // If it works... it works...
-  digitalWrite(2,HIGH);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  200);
-  asynctimer.setTimeout([]() {digitalWrite(2,HIGH);},  400);
-  asynctimer.setTimeout([]() {digitalWrite(2,LOW);},  600);
-}
-
-
-
-void opensesame(int pin){
-  digitalWrite(pin, LOW);
-  Serial.println("Door Opened");
-  asynctimer.setTimeout([pin]() {
-      digitalWrite(pin, HIGH);
-      Serial.println("Door Closed");
-    }, 3000);
-  
-  
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-
-}
-
-
-
-/* ESP-NOW Callback Functions*/
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
-
-  Serial.println("Data Recieved...");
-  //TRIGGER LATCH FOR A 3 SECONDS.
-
-
 }
-
-
-
- 
 
 void startwifi(){
 
@@ -133,15 +91,15 @@ void startwifi(){
   WiFi.softAP(NAME, "pinecones", 0, 1, 4);
   WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-
+  unsigned long wifitimeout = millis();
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(200);
     Serial.print(".");
+    if ((millis() - wifitimeout) > 10000) ESP.restart();
   }
   if (WiFi.waitForConnectResult() != WL_CONNECTED) {
       Serial.printf("WiFi Failed!\n");
-      ESP.restart();
       return;
   }
   else{
@@ -151,6 +109,9 @@ void startwifi(){
    /* MDNS */
   if (!MDNS.begin(NAME)) {
         Serial.println("Error setting up MDNS responder!");
+        while(1) {
+            delay(1000);
+        }
     }
   Serial.println("mDNS responder started");
   Serial.printf("*** PROGRAM START ***\n\n");
@@ -184,7 +145,9 @@ void startespnow(){
     return;
   }
 
+
 }
+
 
 
 void setup() {
@@ -192,62 +155,32 @@ void setup() {
   startwifi();
   startespnow();
 
-  pinMode(2, OUTPUT);
-  pinMode(13,OUTPUT);
-  pinMode(18,OUTPUT);
-  digitalWrite(18,LOW);
-  pinMode(5,OUTPUT);
-  digitalWrite(5,HIGH);
-  digitalWrite(13,HIGH);
+  Wire.begin();
+  sensor.init();
+  sensor.setTimeout(500);
+
+  pinMode(outPin, OUTPUT);
+
+
+  sensor.startContinuous();
   }
 
+void loop()
+{
+  // Serial.print(sensor.readRangeContinuousMillimeters());
+  if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-float samples1[50];
-float averages[10] = {40,40,40,40,40,40,40,40,40,40};
-int val = 0;
-float sum;
-int avg1=40;
-int avg2=40;
-int ScannedSuccessful=0;
-void loop() {
+  // Serial.println();
 
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  for(int j=0;j<25;j++){
-
-  val = hallRead();
-  // print the results to the serial monitor
-  //Serial.println(val); 
-  samples1[j]=val;
-  sum=sum+samples1[j];
-  avg2 = int(sum/j);
-  delay(5);
+  if (sensor.readRangeContinuousMillimeters()<100) {
+    Serial.println("Covered");
+    covered = HIGH;
+    digitalWrite(outPin, HIGH);
   }
-
-  sum=0;
-
-  for(int k=0;k<8;k++){
-    averages[k+1]=averages[k];
+  else {
+    Serial.println("Uncovered");
+    covered = LOW;
+    digitalWrite(outPin, LOW);
   }
-  averages[0]=avg2;
-  avg1=averages[9];
-  Serial.print("Avg1:       ");Serial.print(avg1);Serial.print("   ");
-  
-  Serial.print("Avg2:       ");Serial.print(avg2);Serial.print("     ScannedSuccessful: ");
- 
-  if(avg2<=(avg1-10)){
-    ScannedSuccessful=1;
-  }else if(avg2>=(avg1+10)){
-    ScannedSuccessful=1;
-  }else{ScannedSuccessful=0;}
-
-  
-
-  Serial.println(ScannedSuccessful);
- 
- if(ScannedSuccessful == true){
-  opensesame(13); // 5s timeout til resets.
- }
-  asynctimer.handle();
-  delay(10);
+  delay(250);
 }
-

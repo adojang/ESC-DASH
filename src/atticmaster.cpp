@@ -479,6 +479,7 @@ timeout2 = millis();
 
 
 void loop() {
+  // delay(25); // This should fix most of my issues regarding hyperactive pins.
 
     if(morsebootflag == 1)
   {

@@ -14,6 +14,8 @@
 #define attic_RFID2 0xA5
 #define attic_RFID3 0xA6
 #define attic_RFID4 0xA7
+#define attic_clock2 0xA8
+
 
 //Tomb
 #define tomb_sennet 0xB0

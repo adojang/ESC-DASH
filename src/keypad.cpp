@@ -96,7 +96,7 @@ String enteredSequence = "";
 unsigned long lastKeyPressTimestamp = 0;
 const unsigned long resetTimeout = 10000; // 10 seconds
 
-const String correctSequence2 = "1855";
+const String correctSequence2 = "1379";
 String enteredSequence2 = "";
 unsigned long lastKeyPressTimestamp2 = 0;
 const unsigned long resetTimeout2 = 10000; // 10 seconds
@@ -111,7 +111,38 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
-  //Does not Require Override.
+    memcpy(&rData, incomingData, sizeof(rData));
+    Serial.println("Data Recieved from Somewhere");
+    Serial.print("Data Origin: ");
+    Serial.println(rData.origin);
+
+    if (rData.origin == masterserver && rData.sensor == masterserver)
+    {
+      if (rData.data == 1) // Door Open
+      {
+        digitalWrite(2,HIGH); // Turn off Red LED
+        digitalWrite(22,HIGH);
+
+        digitalWrite(15,LOW); // Turn on Green LED Steady.
+        digitalWrite(23,LOW);
+
+      }
+      
+      if (rData.data == 0) // Door Closed
+      {
+          digitalWrite(15,HIGH); // Disable Solid Green
+          digitalWrite(23,HIGH);
+          
+          digitalWrite(2,LOW); // Enable Solid RED LED.
+          digitalWrite(22,LOW);
+
+      }
+
+    }
+  
+
+
+
 }
 
 /*Keypad Password */
@@ -198,13 +229,18 @@ void sendData()
 
 
   digitalWrite(2,HIGH); // Turn of Red LED
+  digitalWrite(22,HIGH);
+
   for (int i=0;i<8;i++){ // Flash Green LED
     digitalWrite(15,LOW);
+    digitalWrite(23,LOW);
     delay(100);
     digitalWrite(15,HIGH);
+    digitalWrite(23,HIGH);
     delay(100);
   }
   digitalWrite(15,LOW); // Turn on Green LED Steady.
+  digitalWrite(23,LOW);
 }
 
 void setup()
@@ -217,11 +253,17 @@ void setup()
 
 
 
-  pinMode(2, OUTPUT);
-  pinMode(15, OUTPUT);
-  digitalWrite(2, LOW); // RED LED. LOW means ENABLED
-  digitalWrite(15,HIGH); // Green LED HIGH means DISABLED
+  pinMode(2, OUTPUT); // RED LED Inside
+  pinMode(15, OUTPUT); // Green LED Inside
+  pinMode(22,OUTPUT); // X LED Outside
+  pinMode(23,OUTPUT); // X LED Outisde
+  pinMode(13,OUTPUT); // LED PWR
+  digitalWrite(13,HIGH); // LED Outside PWR
+  digitalWrite(22,LOW); //RED Outside LED
+  digitalWrite(2,LOW); // RED INSIDE LED
 
+  digitalWrite(15,HIGH); // Green LED HIGH means DISABLED
+  digitalWrite(23,HIGH); // Green Outside LED
   customKeypad.begin(); // Startup for Keypad
   customKeypad2.begin(); // Startup for Keypad
 }
@@ -232,13 +274,17 @@ void flashRED(){
   sData.data = 2;
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
   digitalWrite(15,HIGH); // Disable Solid Green
+  digitalWrite(23,HIGH);
   //Flash Red LED Many Times
   for (int i=0;i<8;i++){
   digitalWrite(2,LOW);
+  digitalWrite(22,LOW);
   delay(100);
   digitalWrite(2,HIGH);
+  digitalWrite(22,HIGH);
   delay(100);
 }
+digitalWrite(22,LOW);
 digitalWrite(2,LOW); // Enable Solid RED LED.
 }
 

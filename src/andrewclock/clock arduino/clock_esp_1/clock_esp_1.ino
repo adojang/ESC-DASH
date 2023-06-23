@@ -73,15 +73,18 @@ void loop()
   getReadings();
   printSequence();
 
-  if ((sequence==0) && (sens1==HIGH) and (sens2==HIGH)){
+  //Sense1 is where the hole will be.
+  //Sense2 is where the hole is covered.
+
+  if ((sequence==0) && (sens1==HIGH) and (sens2==HIGH)){ // both are initially open.
     sequence=1;
   }
   
-  if ((sequence==1) and (sens1==LOW) and (sens2==HIGH)) {
+  if ((sequence==1) and (sens1==LOW) and (sens2==HIGH)) { // correct holes covered, trigger
     sequence=0;
     activateServo();
   } 
-  else if ((sequence==1) and (sens1==LOW) and (sens2==LOW)) {
+  else if ((sequence==1) and (sens1==LOW) and (sens2==LOW)) { // both are open
     sequence=0;
   }
   printSequence();

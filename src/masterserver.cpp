@@ -94,7 +94,7 @@ uint8_t m_temp_TEMPLATE[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xEE};
 unsigned long emergencyTrigger = 0;
 
 /* ESP Async Timer */
-AsyncTimer asynctimer;
+AsyncTimer asynctimer(15);
 
 /* WiFi Credentials */
 const char* ssid = WIFI_SSID; // SSID
@@ -184,14 +184,23 @@ int keypadtrigger = 0;
 // int global_status;
 
 
-void triggerDoor(int pin, int timeout){
+void triggerDoor(int pin){
   digitalWrite(pin, LOW);
   Serial.println("Door Opened");
-  // delay(15);
+  sData.origin = masterserver;
+  sData.sensor = masterserver;
+  sData.data = 1; // Door Open
+  esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *) &sData, sizeof(sData));
+  delay(50);
   asynctimer.setTimeout([pin]() {
       digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
-    }, 5000);
+      sData.origin = masterserver;
+      sData.sensor = masterserver;
+      sData.data = 0; // Door closed
+      esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *) &sData, sizeof(sData));
+      delay(50);
+    }, 3000);
 }
 
 
@@ -218,9 +227,9 @@ unsigned short tombtimout = 999;
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     memcpy(&rData, incomingData, sizeof(rData));
-    Serial.println("Data Recieved from Somewhere");
-    Serial.print("Data Origin: ");
-    Serial.println(rData.origin);
+    // Serial.println("Data Recieved from Somewhere");
+    // Serial.print("Data Origin: ");
+    // Serial.pr/intln(rData.origin);
 
     if(rData.origin == train_keypad && rData.sensor == train_keypad){
     keypadtrigger = rData.data;
@@ -326,7 +335,7 @@ void startespnow(){
 
     /* Train */
 
-    memcpy(peerInfo.peer_addr, m_trainmaster, 6);
+    memcpy(peerInfo.peer_addr, m_train_keypad, 6);
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
     if (esp_now_add_peer(&peerInfo) != ESP_OK)
@@ -604,9 +613,9 @@ void setup() {
 
   
   //Emergency Buttons.
-  pinMode(4,OUTPUT);
-  digitalWrite(4,HIGH);
-  pinMode(25,INPUT_PULLDOWN);
+  pinMode(25,OUTPUT);
+  digitalWrite(25,HIGH);
+  pinMode(4,INPUT_PULLDOWN);
 
 // Enable relay. This might be an issue. DANGER LINE DANGER LINE DANGINER LINE DANGER LINE DANGER LINE DANGINER LINE   
   pinMode(5, OUTPUT);
@@ -640,17 +649,16 @@ void setup() {
 
 void loop() {
 
+delay(25); // This seems to solve all my self-triggering issues. Probably due to the pins being super sensitive.
+
 
 //Emergency Escape Button
-if ((digitalRead(25)) && (millis() - emergencyTrigger) >= 8000)
+if ((digitalRead(4)) && ((millis() - emergencyTrigger) >= 5000))
   {
-    emergencyTrigger = millis();
+  emergencyTrigger = millis();
   Serial.println("OH NO HERE WE GO");
   
-  triggerDoor(5, 8000);
-  triggerDoor(18, 8000);
-  triggerDoor(19, 8000);
-  triggerDoor(21, 8000);
+  triggerDoor(5);
 
   delay(50);
 }
@@ -659,9 +667,6 @@ if (keypadtrigger == 1) // Unlock the Door Steady State
   {
   keypadtrigger = 0;
   digitalWrite(5, LOW);
-  digitalWrite(18, LOW);
-  digitalWrite(19, LOW);
-  digitalWrite(21, LOW);
   delay(50);
 }
 
@@ -669,15 +674,8 @@ if (keypadtrigger == 2) // Lock the Door Steady State
   {
   keypadtrigger = 0;
   digitalWrite(5, HIGH);
-  digitalWrite(18, HIGH);
-  digitalWrite(19, HIGH);
-  digitalWrite(21, HIGH);
   delay(50);
 }
-
-
-
-
 
   asynctimer.handle();
   // dashboard.sendUpdates();

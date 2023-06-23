@@ -231,7 +231,7 @@ void sendData()
     else {Serial.println("Error sending the data");}
 
     //Correct for 5/6 Later, if we ever get there.
-    if (sData.data == 5){
+    if (sData.data == 4){
       //RESET
       delay(3000);
       hex1 = false;
