@@ -47,6 +47,12 @@
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
 
+/*************************WebSerial ****************************************/
+#include <WebSerial.h>
+/* Message callback of WebSerial */
+
+
+/*************************WebSerial ****************************************/
 
 
 
@@ -64,13 +70,8 @@ const char* password = WIFI_PASS; // Password
 
 /* ESP-NOW Structures */
 
-
-
-
-
-
- dataPacket sData; // data to send
- dataPacket rData; // data to recieve
+dataPacket sData; // data to send
+dataPacket rData; // data to recieve
 
 /* Setup */
 AsyncWebServer server(80);
@@ -81,6 +82,25 @@ String success;
 // bool opendoor2 = false;
 // bool opendoor3 = false;
 // bool opendoor4 = false;
+
+float OPENVALUE = 30;
+float tuneconstant = 0.5; // Value to start with. Callibration should sort this out.
+float samples1[50];
+float averages[10] = {40,40,40,40,40,40,40,40,40,40};
+int val = 0;
+float sum;
+int avg1=40;
+int avg2=40;
+int ScannedSuccessful=0;
+unsigned long locktimer = millis();
+
+
+float currentValue = 0.0;
+float previousEMA = 0.0;
+float prevousEMA2 = 0.0;
+float smoothingFactor = 0.8;  // Adjust this value based on your application
+
+
 
 //Fast Flash to show SENT Data Succesfully
 void sendDataLED(){
@@ -96,6 +116,7 @@ void sendDataLED(){
 void opensesame(int pin){
   digitalWrite(pin, LOW);
   Serial.println("Door Opened");
+  WebSerial.println("Door Opened");
   asynctimer.setTimeout([pin]() {
       digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
@@ -117,49 +138,138 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
-  Serial.println("Data Recieved...");
-  //TRIGGER LATCH FOR A 3 SECONDS.
+  if(rData.origin == masterserver && rData.sensor == train_thumb){
+    opensesame(13);
+  }
 
 
 }
 
+float emaFilter(float currentValue, float previousEMA, float smoothingFactor) {
+  return (currentValue * smoothingFactor) + (previousEMA * (1 - smoothingFactor));
+}
 
+float absolute(float value){
+  if (value < 0){
+    return -value;
+  } else
+  return value;
+}
+
+
+void callibrateReader(){
+for (int j=0; j<100; j++){
+  val = hallRead();
+  sum=sum + val;
+  delay(10);
+}
+sum = sum/100;
+OPENVALUE = emaFilter(sum, previousEMA, smoothingFactor);
+WebSerial.printf("Thumb Reader Callibrated OpenValue is ");
+WebSerial.println(OPENVALUE);
+Serial.println("Baseline Value is: ");
+Serial.println(OPENVALUE);
+
+//Test if it triggers at all:
+bool continuecalibration = true;
+locktimer = millis();
+while(continuecalibration){
+
+  for (int j=0; j<20; j++){
+    val = hallRead();
+    sum=sum + val;
+  }
+  sum = sum/20;
+  float filteredValue = emaFilter(sum, previousEMA, smoothingFactor);
+  previousEMA = filteredValue;
+
+  if (absolute(OPENVALUE - filteredValue) > (tuneconstant*OPENVALUE) && ((millis() - locktimer) > 100)){
+    Serial.printf("Threshhold Adjusted: %f\n", OPENVALUE*tuneconstant);
+    WebSerial.printf("Threshhold Adjusted: %f\n", OPENVALUE*tuneconstant);
+    locktimer = millis();
+    tuneconstant = tuneconstant + 0.15*tuneconstant; // increase by 10% each time.
+  }
+
+  if (millis() - locktimer > 10000){
+    continuecalibration = false; // We have reached equilibrum, no triggering for 5 seconds
+    Serial.printf("\n");
+    tuneconstant = tuneconstant*1.2;
+    Serial.printf("Final Threshhold: %f\n", OPENVALUE*tuneconstant);
+    WebSerial.printf("Final Threshhold: %f\n", OPENVALUE*tuneconstant);
+  }
+
+
+}
+
+  
+Serial.println("Sucessfully Callibrated");
+WebSerial.println("Sucessfully Callibrated");
+
+}
+
+
+void recvMsg(uint8_t *data, size_t len){
+  WebSerial.println("Received Data...");
+  String d = "";
+  for(int i=0; i < len; i++){
+    d += char(data[i]);
+  }
+  WebSerial.println(d);
+
+  if (d == "callibrate"){
+    WebSerial.println("Callibrating...");
+    callibrateReader();
+  }
+}
 
  
 
-void startwifi(){
 
-  // Set device as a Wi-Fi Station
-  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
-  WiFi.mode(WIFI_AP_STA);
+void startWifi()
+{
+  /* Connect WiFi */
+ WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+ WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
 
+  WiFi.setAutoReconnect(true);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+  unsigned long wifitimeout = millis();
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
     Serial.print(".");
+    if ((millis() - wifitimeout) > 10000) ESP.restart();
   }
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.printf("WiFi Failed!\n");
-      ESP.restart();
-      return;
-  }
-  else{
-    Serial.println("WIFI CONNECTED!");
-  }
+  if (WiFi.waitForConnectResult() != WL_CONNECTED)
+  {
+    Serial.printf("WiFi Failed!\n");
+    return;
+  }else
+  {Serial.println("\n\nWIFI CONNECTED!");}
 
-   /* MDNS */
-  if (!MDNS.begin(NAME)) {
-        Serial.println("Error setting up MDNS responder!");
+  if (!MDNS.begin(NAME))
+  {
+    Serial.println("Error setting up MDNS responder!");
+    while (1)
+    {
+      delay(1000);
     }
+  }
   Serial.println("mDNS responder started");
-  Serial.printf("*** PROGRAM START ***\n\n");
-  
+ 
+  /* Elegant OTA */
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
+
+  /* WEB SERIAL REQUIRED TO FUNCTION */
+  WebSerial.begin(&server);
+  WebSerial.msgCallback(recvMsg);
+  
 
   server.begin();
   MDNS.addService("http", "tcp", 80);
-
+  WebSerial.println("mDNS responder started");
+  WebSerial.println("WebSerial Service started");
 }
 
 void startespnow(){
@@ -186,68 +296,71 @@ void startespnow(){
 
 }
 
+unsigned long ttime;
 
 void setup() {
   Serial.begin(115200);
-  startwifi();
+  startWifi();
   startespnow();
 
   pinMode(2, OUTPUT);
-  pinMode(13,OUTPUT);
+  pinMode(13,OUTPUT); // Relay Trigger
   pinMode(18,OUTPUT);
   digitalWrite(18,LOW);
   pinMode(5,OUTPUT);
   digitalWrite(5,HIGH);
   digitalWrite(13,HIGH);
+  delay(2000);
+  Serial.println("Callibrate Reader");
+  WebSerial.println("Callibrate Reader");
+  callibrateReader();
+  ttime = millis();
+  locktimer = millis();
   }
 
 
-float samples1[50];
-float averages[10] = {40,40,40,40,40,40,40,40,40,40};
-int val = 0;
-float sum;
-int avg1=40;
-int avg2=40;
-int ScannedSuccessful=0;
+
+//On Start, callibratae values. If triggered 10 times within a minute, recalibrate.
+
+
+
+
 void loop() {
 
-  //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
-  for(int j=0;j<25;j++){
 
+
+//Take 25 Readings and Average Them.
+for (int j=0; j<20; j++){
   val = hallRead();
-  // print the results to the serial monitor
-  //Serial.println(val); 
-  samples1[j]=val;
-  sum=sum+samples1[j];
-  avg2 = int(sum/j);
-  delay(5);
-  }
-
-  sum=0;
-
-  for(int k=0;k<8;k++){
-    averages[k+1]=averages[k];
-  }
-  averages[0]=avg2;
-  avg1=averages[9];
-  Serial.print("Avg1:       ");Serial.print(avg1);Serial.print("   ");
+  sum=sum + val;
+}
+sum = sum/20;
+float filteredValue = emaFilter(sum, previousEMA, smoothingFactor);
+previousEMA = filteredValue;
   
-  Serial.print("Avg2:       ");Serial.print(avg2);Serial.print("     ScannedSuccessful: ");
- 
-  if(avg2<=(avg1-10)){
-    ScannedSuccessful=1;
-  }else if(avg2>=(avg1+10)){
-    ScannedSuccessful=1;
-  }else{ScannedSuccessful=0;}
+if (millis() - ttime > 2000){
+  ttime = millis();
+  WebSerial.printf("Read Value: %f\n", (absolute(filteredValue)));
+  WebSerial.printf("Threshold Value: %f\n", OPENVALUE*tuneconstant);
+  Serial.println(absolute(OPENVALUE - filteredValue));
+}
 
-  
 
-  Serial.println(ScannedSuccessful);
- 
- if(ScannedSuccessful == true){
+if (absolute(OPENVALUE - filteredValue) > tuneconstant*OPENVALUE && ((millis() - locktimer) > 2000)){
+  Serial.printf("OpenValue: %f\n", OPENVALUE);
+  Serial.printf("filteredValue: %f\n", filteredValue);
+  Serial.printf("Threshhold: %f\n", OPENVALUE*tuneconstant);
+  Serial.printf("Difference: %f\n", absolute(OPENVALUE - filteredValue));
+  locktimer = millis();;
+  WebSerial.println("OpenSesame");
   opensesame(13); // 5s timeout til resets.
- }
+
+}
+
+
+
+
+  
   asynctimer.handle();
-  delay(10);
 }
 

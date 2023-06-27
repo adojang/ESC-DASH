@@ -46,7 +46,23 @@
 /* Elegant OTA */
 #include <AsyncElegantOTA.h>
 
+/*************************WebSerial ****************************************/
+#include <WebSerial.h>
+/* Message callback of WebSerial */
+void recvMsg(uint8_t *data, size_t len){
+  WebSerial.println("Received Data...");
+  String d = "";
+  for(int i=0; i < len; i++){
+    d += char(data[i]);
+  }
+  WebSerial.println(d);
 
+  if (d == "ready"){
+    WebSerial.println("You Are Ready for Action!");
+  }
+}
+
+/*************************WebSerial ****************************************/
 
 
 // REPLACE WITH THE MAC Address of your receiver 
@@ -107,6 +123,7 @@ void getTouch(){
   sData.origin = attic_humanchain;
   sData.sensor = attic_humanchain;
 
+
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
 
   if(filteredValue > 3800){
@@ -117,9 +134,11 @@ void getTouch(){
 
     if (readingcounter >= 100) {
       readingcounter = 0;
-       Serial.printf("TRIGGERD THRESHOLD\n\n\n\n");
-      DOORTOUCH = true;
+      Serial.printf("TRIGGERD THRESHOLD\n");
       Serial.println("Human Chain Touch Detected!");
+      WebSerial.printf("Touch Detected!\n\n");
+      DOORTOUCH = true;
+    
       sData.origin = atticmaster;
       sData.sensor = attic_humanchain;
       sData.data = 1;
@@ -248,42 +267,51 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 }
 
 
-void startwifi(){
-
-  // Set device as a Wi-Fi Station
-  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
-  WiFi.mode(WIFI_AP_STA);
+void startWifi()
+{
+  /* Connect WiFi */
+ WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+ WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-  unsigned long wifitimeout = millis();
+
+  WiFi.setAutoReconnect(true);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+  unsigned long wifitimeout = millis();
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
     Serial.print(".");
     if ((millis() - wifitimeout) > 10000) ESP.restart();
   }
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.printf("WiFi Failed!\n");
-      return;
-  }
-  else{
-    Serial.println("WIFI CONNECTED!");
-  }
+  if (WiFi.waitForConnectResult() != WL_CONNECTED)
+  {
+    Serial.printf("WiFi Failed!\n");
+    return;
+  }else
+  {Serial.println("\n\nWIFI CONNECTED!");}
 
-   /* MDNS */
-  if (!MDNS.begin(NAME)) {
-        Serial.println("Error setting up MDNS responder!");
-        while(1) {
-            delay(1000);
-        }
+  if (!MDNS.begin(NAME))
+  {
+    Serial.println("Error setting up MDNS responder!");
+    while (1)
+    {
+      delay(1000);
     }
+  }
   Serial.println("mDNS responder started");
-  Serial.printf("*** PROGRAM START ***\n\n");
-  
+ 
+  /* Elegant OTA */
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
+
+  /* WEB SERIAL REQUIRED TO FUNCTION */
+  WebSerial.begin(&server);
+  WebSerial.msgCallback(recvMsg);
+  
 
   server.begin();
   MDNS.addService("http", "tcp", 80);
-
+  WebSerial.println("mDNS responder started");
+  WebSerial.println("WebSerial Service started");
 }
 
 void startespnow(){
@@ -354,7 +382,7 @@ void dot(){
     Serial.printf("New Wait Time: %d\n", globalwait);
     }
 
-    void dash(){
+void dash(){
   asynctimer.setTimeout([]() {longlight(); }, globalwait);
     globalwait += longDelay*2;
     Serial.printf("New Wait Time: %d\n", globalwait);
@@ -394,7 +422,7 @@ Serial.println("Morse End");
 
 void setup() {
   Serial.begin(115200);
-  startwifi();
+  startWifi();
   startespnow();
 
   pinMode(22, OUTPUT); // emergency Button GND
