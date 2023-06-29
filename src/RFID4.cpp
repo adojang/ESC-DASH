@@ -51,6 +51,24 @@
 #include <SPI.h>
 #include <MFRC522.h>
 
+/*************************WebSerial ****************************************/
+#include <WebSerial.h>
+/* Message callback of WebSerial */
+void recvMsg(uint8_t *data, size_t len){
+  WebSerial.println("Received Data...");
+  String d = "";
+  for(int i=0; i < len; i++){
+    d += char(data[i]);
+  }
+  WebSerial.println(d);
+
+  if (d == "ready"){
+    WebSerial.println("You Are Ready for Action!");
+  }
+}
+
+/*************************WebSerial ****************************************/
+
 
 // #define SS_PIN  5  // ESP32 pin GPIO5 
 #define RST_PIN 5 // ESP32 pin GPIO21
@@ -107,7 +125,7 @@ esp_now_peer_info_t peerInfo;
 
 
 bool turnlighton = false;
-
+ int HexCount = 0;
 
 /* ESP-NOW Callback Functions*/
 
@@ -119,14 +137,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
   Serial.println("Override Data Recieved...");
 
-  if (rData.data == 1) {
-  //You should never use delay in this function. It might cause the ESP-NOW to crash.
-    turnlighton = true;
-  }
-  else
-  {
-    turnlighton = false;
-  }
+if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 66){
+  //Restart ESP and reset the counter.
+  WebSerial.println("RESARTING ESP32...");
+  ESP.restart();
+}
   
   // Add your code here to do something with the data recieved.
   //It's probably best to use a flag instead of calling it directly here. Not Sure
@@ -135,41 +150,51 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 }
  
 
-void startwifi(){
-
-  // Set device as a Wi-Fi Station
-  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
-  WiFi.mode(WIFI_AP_STA);
+void startWifi()
+{
+  /* Connect WiFi */
+ WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+ WiFi.mode(WIFI_AP_STA);
   esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-  delay(250);
-  WiFi.begin(ssid, password);
-  delay(250);
-  unsigned long wifitimeout = millis();
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
-    Serial.print(".");
-    if (millis()- wifitimeout > 5000){
-      Serial.printf("WiFi Failed to Connect!\n"); // 10 second timeout
-      ESP.restart();
-    } 
-  }
-    Serial.println("WIFI CONNECTED!");
 
-   /* MDNS */
-  if (!MDNS.begin(NAME)) {
-        Serial.println("Error setting up MDNS responder!");
-        while(1) {
-            delay(1000);
-        }
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(ssid, password);
+  unsigned long wifitimeout = millis();
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+    if ((millis() - wifitimeout) > 10000) ESP.restart();
+  }
+  if (WiFi.waitForConnectResult() != WL_CONNECTED)
+  {
+    Serial.printf("WiFi Failed!\n");
+    return;
+  }else
+  {Serial.println("\n\nWIFI CONNECTED!");}
+
+  if (!MDNS.begin(NAME))
+  {
+    Serial.println("Error setting up MDNS responder!");
+    while (1)
+    {
+      delay(1000);
     }
+  }
   Serial.println("mDNS responder started");
-  Serial.printf("*** PROGRAM START ***\n\n");
-  
+ 
+  /* Elegant OTA */
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
+
+  /* WEB SERIAL REQUIRED TO FUNCTION */
+  WebSerial.begin(&server);
+  WebSerial.msgCallback(recvMsg);
+  
 
   server.begin();
   MDNS.addService("http", "tcp", 80);
-
+  WebSerial.println("mDNS responder started");
+  WebSerial.println("WebSerial Service started");
 }
 
 void startespnow(){
@@ -198,7 +223,7 @@ void startespnow(){
 
 void sendData()
 {
-  int HexCount = 0;
+  HexCount = 0;
 
   if (hex1 == true){
     HexCount = HexCount + 1;
@@ -231,26 +256,11 @@ void sendData()
     else {Serial.println("Error sending the data");}
 
     //Correct for 5/6 Later, if we ever get there.
-    if (sData.data == 4){
-      //RESET
-      delay(3000);
-      hex1 = false;
-      hex2 = false;
-      hex3 = false;
-      hex4 = false;
-      hex5 = false;
-      hex6 = false;
-      sData.data = 0;
-    // esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-    // if (result == ESP_OK) { Serial.println("Sent with success");}
-    // else {Serial.println("Error sending the data");}
-    }
-
 }
 
 void setup() {
   Serial.begin(115200);
-  startwifi();
+  startWifi();
   startespnow();
   sData.origin = attic_RFID4;
   sData.sensor = attic_RFID4;
@@ -283,8 +293,10 @@ void setup() {
     mfrc522[reader].PCD_DumpVersionToSerial();
   }
 
-
+  sendData();
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
+  WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
+
 
 
   //This line is sort of required. It automatically sends the data every 5 seconds. Don't know why. But hey there it is.
@@ -300,7 +312,15 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
   }
 }
 
+unsigned long ttimer = millis();
+
 void loop() {
+
+
+  if(millis() - ttimer > 2000){
+    WebSerial.println(HexCount);
+    ttimer = millis();
+  }
 
   if (turnlighton) {
     digitalWrite(2,HIGH);
@@ -329,6 +349,7 @@ void loop() {
 
             if(uidText == "90bd4a26" && reader==0){
         Serial.println("Pin 13 Reader 0 Triggered.");
+        WebSerial.println("Pin 13 Reader 0 Triggered.");
         hex1 = true;
         sendData();
       } 
@@ -341,26 +362,31 @@ void loop() {
       //   sendData();
       // } 
 
-      if(uidText == "901fd026" && reader==1){
+                  if(uidText == "901fd026" && reader==1){
         Serial.println("Pin 26 Reader 1 Triggered.");
+        WebSerial.println("Pin 26 Reader 1 Triggered.");
         hex3 = true;
         sendData();
       }
 
                   if(uidText == "932f92d" && reader==2){
         Serial.println("Pin 27 Reader 2 Triggered.");
+        WebSerial.println("Pin 27 Reader 2 Triggered.");
         hex4 = true;
         sendData();
       } 
 
                   if(uidText == "31cc8b" && reader==3){
         Serial.println("Pin 32 Reader 5 Triggered.");
+        WebSerial.println("Pin 32 Reader 5 Triggered.");
         hex5 = true;
         sendData();
       } 
 
-                  if(uidText == "c3777fd" && reader == 4){
+                  if(uidText == "919a1f1d" && reader == 4){
         Serial.println("Pin 33 Reader 5 Triggered.");
+        WebSerial.println("Pin 33 Reader 5 Triggered.");
+        
         hex6 = true;
         sendData();
       } 

@@ -67,6 +67,10 @@ void recvMsg(uint8_t *data, size_t len){
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
+uint8_t m_RFID1[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA4}; // Address of RFID1 Server
+uint8_t m_RFID2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA5}; // Address of RFID2 Server
+uint8_t m_RFID3[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA6}; // Address of RFID3 Server
+uint8_t m_RFID4[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA7}; // Address of RFID4 Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
 
@@ -100,15 +104,15 @@ bool RFID1_armed = false;
 
 
 bool DOORTOUCH = false;
-
+bool doorlocked = false;
 
 int readingcounter = 0;
 
 float currentValue = 0.0;
 float previousEMA = 0.0;
 float prevousEMA2 = 0.0;
-float smoothingFactor = 0.8;  // Adjust this value based on your application
-//0.8 600-3400 floating, 4000 touching
+
+float smoothingFactor = 0.8;  // Adjust this value based on your application //0.8 600-3400 floating, 4000 touching
 
 float emaFilter(float currentValue, float previousEMA, float smoothingFactor) {
   return (currentValue * smoothingFactor) + (previousEMA * (1 - smoothingFactor));
@@ -131,32 +135,20 @@ void getTouch(){
     readingcounter +=80; // trigger in 2 ticks.
   }
 
-
-    if (readingcounter >= 100) {
-      readingcounter = 0;
-      Serial.printf("TRIGGERD THRESHOLD\n");
-      Serial.println("Human Chain Touch Detected!");
-      WebSerial.printf("Touch Detected!\n\n");
-      DOORTOUCH = true;
-    
-      sData.origin = atticmaster;
-      sData.sensor = attic_humanchain;
-      sData.data = 1;
-      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-
-    }
-    readingcounter -= 5;
-
-    if (readingcounter < 0) readingcounter = 0;
-}
-
-
-//This Sends Data to the MasterServer to tell it its still connected
-void statusAlive(){
-  sData.origin = atticmaster;
-  sData.sensor = atticmaster;
-  sData.data = 0;
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
+  if (readingcounter >= 100) {
+    readingcounter = 0;
+    Serial.printf("TRIGGERD THRESHOLD\n");
+    Serial.println("Human Chain Touch Detected!");
+    WebSerial.printf("Touch Detected!\n\n");
+    DOORTOUCH = true;
+    sData.origin = atticmaster;
+    sData.sensor = attic_humanchain;
+    sData.data = 1;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+  }
+  
+  readingcounter -= 5;
+  if (readingcounter < 0) readingcounter = 0;
 }
 
 
@@ -168,19 +160,11 @@ void triggerDoor(int pin, int timeout){
       digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
     }, 5000);
-  
-  
-  // asynctimer.setInterval([]() {esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));},  5000);
-
 }
-
-
-
 
 
 void IRAM_ATTR emergency(){
   emergencyFlag = 1;
-
 }
 
 /* ESP-NOW Callback Functions*/
@@ -192,12 +176,35 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
+  if(rData.origin == masterserver && rData.sensor == masterserver){
+    if (rData.data == 88) doorlocked = true; // locked
+    if(rData.data == 99) doorlocked = false; // unlocked
+  }
+
     //RESET THE WHOLE ROOM.
   if ((rData.origin == masterserver) && (rData.data == 66)){
+    //Restart all other RFID sensors?
+    sData.origin = atticmaster;
+    sData.sensor = atticmaster;
+    sData.data = 66;
+    WebSerial.println("Order 66 Restarting.");
+    delay(250);
+    esp_err_t result = esp_now_send(m_RFID4, (uint8_t *) &sData, sizeof(sData));
+    delay(250);
     ESP.restart();
   }
 
   
+  // if(rData.origin == attic_morse && rData.sensor == attic_morse && rData.data == 1){
+  //   RFID2_status = false;
+  //   RFID3_status = false;
+  //   RFID4_status = false;
+    
+  //   //Restart the Sequence.
+
+  // }
+
+
   // Forward Data from Sensors to Master Server
   if (rData.origin != masterserver){
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
@@ -231,7 +238,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 
     //RFID 4 is 5/6 because one of them is a bit wonky.
-    if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4 && rData.data >= 5){
+    if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4 && rData.data >= 6){
     RFID4_status = true;
     //Send an Updated 'flag' to master
     rData.data = 100;
@@ -336,87 +343,19 @@ void startespnow(){
     return;
   }
 
+/* RFID Peers */
 
-}
-
-int globalwait = 0;
-int normalDelay = 650;
-
-int longDelay = normalDelay * 2;
-int morsebootflag = 0;
-int morseperiod = 0;
-unsigned long morsetimer = 0;
-
-void shortlight() {
-  ledcWrite(0, 4000);
-  asynctimer.setTimeout([]() {
-    ledcWrite(0, 0);
-    Serial.println("Light Off");
-  }, normalDelay);
-}
-
-void longlight(){ // turn light on, then wait for delay to turn off again.
-  ledcWrite(0, 4000);
-
-  asynctimer.setTimeout([]() {
-    ledcWrite(0, 0);
-    Serial.println("Light Off");
-  }, longDelay);
-}
-
-void breifpause(){
-  globalwait += longDelay;
-}
-
-void endloop(){
-
-morseperiod = (millis()-morsetimer) + (2*longDelay);
-morsebootflag = 1;
-Serial.println("Morse Period:");
-Serial.println(morseperiod);
-}
-
-void dot(){
-  asynctimer.setTimeout([]() {shortlight(); }, globalwait);
-    globalwait += normalDelay*2;
-    Serial.printf("New Wait Time: %d\n", globalwait);
+    memcpy(peerInfo.peer_addr, m_RFID4, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
+      WebSerial.println("Failed to add peer");
+      return;
     }
 
-void dash(){
-  asynctimer.setTimeout([]() {longlight(); }, globalwait);
-    globalwait += longDelay*2;
-    Serial.printf("New Wait Time: %d\n", globalwait);
-    }
 
-void morseloop(){
-morsetimer = millis();
-globalwait = 0;
 
-dot();
-dot();
-dot();
-dash();
-dash();
-breifpause();
-
-dot();
-dot();
-dot();
-dot();
-dot();
-breifpause();
-
-dot();
-dash();
-dash();
-dash();
-dash();
-
-if (morsebootflag == 0){
-  asynctimer.setTimeout([]() {endloop();}, globalwait); // wait for 6200 before executing
-}
-
-Serial.println("Morse End");
 }
 
 
@@ -424,6 +363,7 @@ void setup() {
   Serial.begin(115200);
   startWifi();
   startespnow();
+  //Pin Setups
 
   pinMode(22, OUTPUT); // emergency Button GND
   digitalWrite(22, HIGH);
@@ -443,19 +383,13 @@ void setup() {
 
  attachInterrupt(17, emergency, HIGH);
 
-  // LIGHT TEST
-
-  ledcSetup(0, 100, 12); // Lightbulb
+  // BIKE LIGHT
   ledcSetup(1, 100, 12); // Bike LED
-  ledcAttachPin(27, 0); // Lightbulb
   ledcAttachPin(26, 1);
-  ledcWrite(0, 0);
   ledcWrite(1, 0);
 
-  //Morse Code Initialize:
-   morseloop();
-
   analogReadResolution(12);
+
   //GND Pin for PWM Controllers
   pinMode(33, OUTPUT);
   digitalWrite(33, LOW);
@@ -463,67 +397,20 @@ void setup() {
   digitalWrite(25, LOW);
 
   //HumanTouch Pins
-  pinMode(34, INPUT_PULLDOWN);
-  pinMode(15, OUTPUT);
-  digitalWrite(15,HIGH);
+  pinMode(15, INPUT_PULLDOWN); // Goes to ESP32 atticmaster2 GPIO output.
+  // pinMode(15, OUTPUT);
+  // digitalWrite(15,HIGH);
 
-
-  asynctimer.setInterval([]() {
-  statusAlive();
-  ;},  2000);
-
-
-  //UPDATE ARMED to NOT ARMED WHEN RESTARTING ON DASHBOARD
-  sData.data = 0;
-  sData.origin = attic_RFID1;
-  sData.sensor = attic_RFID1;
-  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-
-  sData.origin = attic_RFID2;
-  sData.sensor = attic_RFID2;
-  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-
-  sData.origin = attic_RFID3;
-  sData.sensor = attic_RFID3;
-  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-
-  sData.origin = attic_RFID4;
-  sData.sensor = attic_RFID4;
-  esp_now_send(broadcastAddress, (uint8_t *) &rData, sizeof(rData));
-
-  //End Update and Initialize.
-
-
-
-int timeout = normalDelay*24;
-
-asynctimer.setInterval([]() {getTouch();},  250);
 emergencyTrigger = millis();
 timeout2 = millis();
-  }
-
-
-
+}
 
 
 void loop() {
-  // delay(25); // This should fix most of my issues regarding hyperactive pins.
-
-    if(morsebootflag == 1)
-  {
-    Serial.println("morsebootflag = 1");
-      asynctimer.setInterval([]() {
-      Serial.println("Set Interval");
-      morseloop();
-    }, morseperiod);
-    morsebootflag = 2;
-  }
-
   
-  // THESE TWO MUST BE MERGED WHEN THE PUZZLE IS COMPLETE
-if ((DOORTOUCH == true) && (RFID3_status == true) && (RFID2_status == true) && (RFID4_status == true)){
+  //HumanChain Logic
+if ((DOORTOUCH == true) && (RFID2_status == true) && (RFID3_status == true) && (RFID4_status == true) && (doorlocked == false)){
   //Open the marvelous door.
-// ***************************************************************** EDIT THIS LATER TO INCLUDE THE BOOL FROM THE PUZZLES
 
   DOORTOUCH = false;
   triggerDoor(5, 2000);
@@ -542,11 +429,9 @@ if ((DOORTOUCH == true) && (RFID3_status == true) && (RFID2_status == true) && (
   // delay(100);
   }
   else{
-    DOORTOUCH = false;
-
-    if (millis() - timeout2 >= 1000)
+    if (millis() - timeout2 >= 2000)
     {
-    timeout2 = millis();
+      timeout2 = millis();
       sData.origin = atticmaster;
       sData.sensor = attic_humanchain;
       sData.data = 0;
@@ -556,32 +441,30 @@ if ((DOORTOUCH == true) && (RFID3_status == true) && (RFID2_status == true) && (
 
 
 //Emergency Escape Button
-if ((digitalRead(23)) && (millis() - emergencyTrigger) >= 5000)
+if ((digitalRead(23)) && (millis() - emergencyTrigger) >= 3000)
   {
     emergencyTrigger = millis();
     emergencyFlag = 0;
-  Serial.println("OH NO HERE WE GO");
-  sData.origin = 0x03;
-  sData.sensor = 0xA3;
-  sData.data = 1;
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
-  
-  triggerDoor(5, 2000);
-  triggerDoor(18, 2000);
-  triggerDoor(19, 2000);
-  triggerDoor(21, 2000);
-
-  if (result == ESP_OK) { 
-    Serial.println("Sent with success");
-    }
-  else {
-    Serial.println("Error sending the data");
+    Serial.println("OH NO HERE WE GO");
+    sData.origin = 0x03;
+    sData.sensor = 0xA3;
+    sData.data = 1;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &sData, sizeof(sData));
+    
+    triggerDoor(5, 2000);
+    triggerDoor(18, 2000);
+    triggerDoor(19, 2000);
+    triggerDoor(21, 2000);
+    delay(50);
   }
-  delay(50);
+
+
+//ESP32 GPIO Pin that doesn't appear to work reliably.
+if(digitalRead(15)){
+  DOORTOUCH = true;
+  Serial.println("TRUE");
+  delay(250);
 }
-
-
-
 
 
   asynctimer.handle();

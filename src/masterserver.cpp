@@ -79,8 +79,9 @@ uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
 // Attic
 uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
 uint8_t m_attic_bike[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1};
-uint8_t m_attic_grandfatherclock[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2};
+uint8_t m_clock[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2};
 uint8_t m_attic_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA3};
+
 
 // Tomb
 uint8_t m_tomb_sennet[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0};
@@ -95,8 +96,7 @@ uint8_t m_train_keypad[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC0};
 uint8_t m_train_thumb[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC1};
 uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
 
-// Template
-uint8_t m_temp_TEMPLATE[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xEE};
+
 
 // RFID Readers
 
@@ -116,10 +116,19 @@ AsyncTimer asynctimer(15);
 const char* ssid = WIFI_SSID; // SSID
 const char* password = WIFI_PASS; // Password
 
+/* RFID Bools Oneshots*/
+bool RFID1_complete = true;
+bool RFID2_complete = false;
+bool RFID3_complete = false;
+bool RFID4_complete = false;
+bool rfiddoorlock = false;
+
 /* Setup */
 AsyncWebServer server(80);
 ESPDash dashboard(&server,false);
 esp_now_peer_info_t peerInfo;
+
+
 
 // ESPDash dashboard.setTitle("Escape Room Control Panel");
 /* * * * * *  ESP-DASH Cards * * * * * * */
@@ -128,7 +137,11 @@ esp_now_peer_info_t peerInfo;
 
 /*Testing*/
 Card touchval(&dashboard, GENERIC_CARD, "If these numbers stop changing, restart everything.");
-Card restart_attic(&dashboard, BUTTON_CARD, "Reset Attic"); //momentary
+Card restart_attic(&dashboard, BUTTON_CARD, "Restart Attic"); //momentary
+Card trim1(&dashboard, BUTTON_CARD, "Trim Clock Up"); //momentary
+Card trim2(&dashboard, BUTTON_CARD, "Trim Clock Down"); //momentary
+Card reset_RFID(&dashboard, BUTTON_CARD, "Reset RFID"); //momentary
+Card lockdoor(&dashboard, BUTTON_CARD, "Lock RFID Door"); //momentary
 Card restart_master(&dashboard, BUTTON_CARD, "Restart Control"); //momentary
 Card DOORTOUCH(&dashboard, GENERIC_CARD, "DoorTouch"); //momentary
 // Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
@@ -237,6 +250,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   // Serial.print("Data Origin: ");
   // Serial.pr/intln(rData.origin);
 
+
   if(rData.origin == train_keypad && rData.sensor == train_keypad){
   keypadtrigger = rData.data;
 
@@ -257,29 +271,46 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1)
   {
-    attic_rfid1.update(rData.data);
-    if (rData.data == 100) attic_rfid1.update("COMPLETE");
+    // if(RFID1_complete == false){attic_rfid1.update(rData.data);}     
+
+    // if (rData.data == 100){
+    //   attic_rfid1.update("COMPLETE");
+    //   RFID1_complete = true;
+    // }
+    attic_rfid1.update("COMPLETE");
     dashboard.sendUpdates();
   }
 
   if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
   {
-    attic_rfid2.update(rData.data);
-    if (rData.data == 100) attic_rfid2.update("COMPLETE");
+    if(RFID2_complete == false){attic_rfid2.update(rData.data);}
+
+    if (rData.data == 100){
+      attic_rfid2.update("COMPLETE");
+      RFID2_complete = true;
+    }
     dashboard.sendUpdates();
-  }
+}
 
   if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3)
   {
-    attic_rfid3.update(rData.data);
-  if (rData.data == 100) attic_rfid3.update("COMPLETE");
+    if(RFID3_complete == false){attic_rfid3.update(rData.data);}
+
+    if (rData.data == 100){
+     attic_rfid3.update("COMPLETE");
+    RFID3_complete = true;
+    }
     dashboard.sendUpdates();
   }
 
   if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4)
   {
-    attic_rfid4.update(rData.data);
-    if (rData.data == 100) attic_rfid4.update("COMPLETE");
+    if(RFID4_complete == false){ attic_rfid4.update(rData.data);}
+
+    if (rData.data == 100){
+      attic_rfid4.update("COMPLETE");
+      RFID4_complete = true;
+    }
     dashboard.sendUpdates();
   }
 
@@ -319,6 +350,16 @@ void startespnow(){
 
     /* Attic */
     memcpy(peerInfo.peer_addr, m_atticmaster, 6);
+    peerInfo.channel = 0;
+    peerInfo.encrypt = false;
+    if (esp_now_add_peer(&peerInfo) != ESP_OK)
+    {
+      Serial.println("Failed to add peer");
+      return;
+    }
+
+    /* CLOCK ATTIC */
+    memcpy(peerInfo.peer_addr, m_clock, 6);
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
     if (esp_now_add_peer(&peerInfo) != ESP_OK)
@@ -368,7 +409,11 @@ void configDash(){
 
   /* Attic */
   humanchain_card.setTab(&attic);
-
+  restart_attic.setTab(&attic);
+  trim1.setTab(&attic);
+  trim2.setTab(&attic);
+  reset_RFID.setTab(&attic);
+  lockdoor.setTab(&attic);
   DOORTOUCH.setTab(&attic);
   touchval.setTab(&attic);
   attic_rfid1.setTab(&attic);
@@ -415,6 +460,8 @@ void buttonTimeout(Card* cardptr, int timeout = 3000){
 
 }
 
+bool resetrfidvalues = false;
+
 void startButtonCB(){
 
 
@@ -425,17 +472,67 @@ Serial.printf("Attic Restart Triggered\n");
 sData.origin = masterserver;
 sData.data = 66;
 esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { Serial.println("ERROR SENDING ESP-NOW DATA");}
-
 sData.data = 0;
-
-
-
-
-
-
 });
 
+/* Trim Button Attic */
+
+trim1.attachCallback([](int value){
+buttonTimeout(&trim1);
+Serial.printf("Attic Trim 2 Triggered\n");
+sData.origin = masterserver;
+sData.data = 10;
+esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
+sData.data = 0;
+});
+
+/* Reset Button Attic */
+trim2.attachCallback([](int value){
+buttonTimeout(&trim2);
+Serial.printf("Attic Trim 2 Triggered\n");
+sData.origin = masterserver;
+sData.data = 20;
+esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
+sData.data = 0;
+});
+
+//Reset the RFID Values on the Dashboard
+reset_RFID.attachCallback([](int value){
+buttonTimeout(&reset_RFID);
+WebSerial.printf("RFID RESET triggered\n");
+resetrfidvalues = true;
+
+// RFID1_complete = false;
+RFID2_complete = false;
+RFID3_complete = false;
+RFID4_complete = false;
+});
+
+lockdoor.attachCallback([](int value){
+lockdoor.update(value);
+WebSerial.printf("RFID Door Locked/Unlocked\n");
+if (value == 1) {
+  rfiddoorlock = true;
+  Serial.printf("Attic Restart Triggered\n");
+  sData.origin = masterserver;
+  sData.sensor = masterserver;
+  sData.data = 88;
+  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+  sData.data = 0;
+
+}
+if (value == 0) {
+  rfiddoorlock = false;
+  Serial.printf("Attic Restart Triggered\n");
+  sData.origin = masterserver;
+  sData.sensor = masterserver;
+  sData.data = 99;
+  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+  sData.data = 0;
+  }
+
+dashboard.sendUpdates();
+});
 
 
 
@@ -673,16 +770,18 @@ void loop() {
 //CLEAN CLEAN CLEAN THIS LINE
 if (millis() - ttime > 2000){
   WebSerial.println(analogRead(34));
+  WebSerial.printf("RFIDRESET VALUE: %d\n", resetrfidvalues);
   ttime = millis();
 }
 
 //Emergency Escape Button
-if ((analogRead(34) > 3500) && ((millis() - emergencyTrigger) >= 5000))
+if ((analogRead(34) > 3500) && ((millis() - emergencyTrigger) >= 1000))
   {
   WebSerial.println(analogRead(34));
   emergencyTrigger = millis();
   WebSerial.println("Door Triggered");
   triggerDoor(5);
+  delay(50);
 }
 
 if (keypadtrigger == 1) // Unlock the Door Steady State
@@ -698,6 +797,7 @@ if (keypadtrigger == 2) // Lock the Door Steady State
   keypadtrigger = 0;
   digitalWrite(5, HIGH);
 }
+
 
   asynctimer.handle();
 }
