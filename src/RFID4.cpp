@@ -24,6 +24,8 @@
   --------------------------------------------------------------------------
 */
 
+
+// NEEDS A SMALL 4S DELAY TO ACCOUNT FOR RESTARTING!!!!!!!!!!!!!!!
 #define NAME "RFID4"
 #define MACAD 0xA7 // Refer to Table in Conventions
 
@@ -125,7 +127,7 @@ esp_now_peer_info_t peerInfo;
 
 
 bool turnlighton = false;
- int HexCount = 0;
+int HexCount = 0;
 
 /* ESP-NOW Callback Functions*/
 

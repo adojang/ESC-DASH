@@ -723,8 +723,10 @@ void startWifi()
 
 void setup() {
   Serial.begin(115200);
+  
+  
   //Signaling LED
-    pinMode(2, OUTPUT);
+  pinMode(2, OUTPUT);
   digitalWrite(2,LOW);
 
   

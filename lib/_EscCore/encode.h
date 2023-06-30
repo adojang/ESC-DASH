@@ -1,10 +1,10 @@
-
+#ifndef ENCODE_H
+#define ENCODE_H
 //Control
 #define masterserver 0x00
 #define trainmaster 0x01
 #define tombmaster 0x02
 #define atticmaster 0x03
-#define atticmaster2 0x04
 
 //Attic
 #define attic_humanchain 0xA0
@@ -32,10 +32,6 @@
 #define train_thumb   0xC1
 #define train_overrideButton 0xC2
 
-//Template
-#define TEMPLATE 0xEE
-
-
 //Relay Control
 #define doortime 5000 
 #define door1 5 //GPIO Pins for Relays
@@ -50,3 +46,6 @@ int origin;
 int sensor;
 int data;
 } dataPacket;
+
+
+#endif

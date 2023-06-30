@@ -3,7 +3,6 @@
 
 //Initialization
 EscCore::EscCore(){
-  five = 5;
   ssid = WIFI_SSID; // SSID
   password = WIFI_PASS; // Password
 }
@@ -30,9 +29,11 @@ void EscCore::recvMsg(uint8_t *data, size_t len){
 }
 
 
-void EscCore::startup(uint8_t* setMACAddress, const char* mdnsName, AsyncWebServer& server){
+
+int EscCore::startup(uint8_t* setMACAddress, const char* mdnsName, AsyncWebServer& server){
   Serial.println("EscCore 1.0 (c) Adriaan van Wijk 2023");
- 
+
+  
   /* Connect WiFi */
   WiFi.softAP(mdnsName, "pinecones", 0, 1, 4);
   WiFi.mode(WIFI_AP_STA);
@@ -50,35 +51,35 @@ void EscCore::startup(uint8_t* setMACAddress, const char* mdnsName, AsyncWebServ
     Serial.print(".");
     if ((millis() - wifitimeout) > 10000){
       Serial.println("Could not find Wifi Network, Restarting...");
+
       ESP.restart();
     }
   }
   Serial.println();
   Serial.println("******** ********");
   Serial.println("Wifi Start");
+
   
 
   /* MDNS Initialize */ 
   if (!MDNS.begin(mdnsName))
   {
-    Serial.println("Error setting up MDNS responder!");
-    while (1)
+    Serial.println("mDNS Fail! Please check your network...");
+    return 1;
+  } 
+  else
     {
-      Serial.println("mDNS Fail! Please check your network...");
-      delay(5000);
-      ESP.restart();
+      Serial.println("mDNS Start");
     }
-  }
-  Serial.println("mDNS Start");
-
 
   /* Elegant OTA */
   AsyncElegantOTA.begin(&server, "admin", "admin1234");
   Serial.println("AsyncOTA Start");
+
   
   /*WebSerial*/
   WebSerial.begin(&server);
- Serial.println("WebSerial Start");
+  Serial.println("WebSerial Start");
   
   //Callback Function
   auto callback = [&](uint8_t* data, size_t len) {
@@ -128,9 +129,9 @@ String html = html1 + webstring + html2 + webserial + html3;
   
   server.begin();
   Serial.println("WebServer Start");
-  
   MDNS.addService("http", "tcp", 80);
 
+  return 0;
 }
 
 

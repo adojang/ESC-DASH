@@ -38,6 +38,9 @@
  * @param Maintained by Adriaan van Wijk.
 
  */
+
+
+
 class EscCore
 {
   public:
@@ -48,13 +51,15 @@ class EscCore
      * @param setMACAddress The MAC address set for the ESP32, useful for ESP-NOW communication
      * @param mdnsName The name for the DNS and Wifi. Access via http://name.local
      * @param server The server type object. Declare as AsyncWebServer server(80) somewhere before setup().
+     * @return 0 if successful, 1 if failed.
      */
-    void startup(uint8_t* setMACAddress,  const char* mdnsName, AsyncWebServer& server); // macAddress is the mac address the ESP32 will be set to.
+    int startup(uint8_t* setMACAddress,  const char* mdnsName, AsyncWebServer& server); // macAddress is the mac address the ESP32 will be set to.
 
 
+  
   private:
-    const char* ssid;
-    const char* password;
+    const char* ssid; // setup in config.h
+    const char* password; // setup in config.h
     void recvMsg(uint8_t *data, size_t len);
 };
 

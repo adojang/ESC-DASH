@@ -162,7 +162,6 @@ void triggerDoor(int pin, int timeout){
     }, 5000);
 }
 
-
 void IRAM_ATTR emergency(){
   emergencyFlag = 1;
 }
