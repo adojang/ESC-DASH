@@ -25,8 +25,8 @@
 
 #include <EscCore.h>
 
-#define NAME "king"
-#define setMACAddress m_masterserver
+#define NAME "morse"
+#define setMACAddress m_attic_morse
 
 #pragma region mac
 // Control
@@ -71,28 +71,120 @@ EscCore Core;
 dataPacket sData; // data to send
 dataPacket rData; // data to recieve
 
+/* Configuration and Setup */
 
-void buttonTimeout(Card* cardptr, int timeout = 3000){
-  cardptr->update(1);
-  asynctimer.setTimeout([cardptr]() {
-    cardptr->update(0);
-    dashboard.sendUpdates();
-  }, timeout);
-  dashboard.sendUpdates();
+unsigned long ttime = millis();
+// Morse Variables
+
+int globalwait = 0;
+int normalDelay = 650;
+
+int longDelay = normalDelay * 2;
+int morsebootflag = 0;
+int morseperiod = 0;
+unsigned long morsetimer = 0;
+unsigned short IDx; // ID for morse loop.
+int resetmorseflag = 0;
+
+/* Functions */
+
+void shortlight() {
+  ledcWrite(0, 4000);
+  digitalWrite(2,HIGH);
+  asynctimer.setTimeout([]() {
+    digitalWrite(2,LOW);
+    ledcWrite(0, 0);
+  }, normalDelay);
+}
+
+void longlight(){ // turn light on, then wait for delay to turn off again.
+  ledcWrite(0, 4000);
+  digitalWrite(2,HIGH);
+  asynctimer.setTimeout([]() {
+    ledcWrite(0, 0);
+    digitalWrite(2,LOW);
+  }, longDelay);
+}
+
+void breifpause(){
+  globalwait += longDelay;
+}
+
+void shortpause(){
+  globalwait += normalDelay;
+}
+
+void endloop(){
+
+morseperiod = (millis()-morsetimer) + (2*longDelay);
+morsebootflag = 1;
+Serial.println("Morse Period:");
+Serial.println(morseperiod);
+}
+
+void dot(){
+  Serial.println("Dot");
+  asynctimer.setTimeout([]() {shortlight(); }, globalwait);
+    globalwait += normalDelay*2;
+    Serial.printf("New Wait Time: %d\n", globalwait);
+    }
+
+void dash(){
+  Serial.println("Dash");
+  asynctimer.setTimeout([]() {longlight(); }, globalwait);
+    globalwait += longDelay*2;
+    Serial.printf("New Wait Time: %d\n", globalwait);
+    }
+
+void morseloop(){
+morsetimer = millis();
+globalwait = 0;
+
+dot();
+dot();
+dot();
+dash();
+dash();
+breifpause();
+breifpause();
+
+dot();
+dot();
+dot();
+dot();
+dot(); // delay slightly longer.
+
+shortpause();
+breifpause();
+breifpause();
+
+dot();
+dash();
+dash();
+dash();
+dash();
+breifpause();
+breifpause();
+
+if (morsebootflag == 0){
+  asynctimer.setTimeout([]() {endloop();}, globalwait); // wait for 6200 before executing
+}
+
+Serial.println("Morse End");
 }
 
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
-}
 
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");}
+
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) 
+{
   memcpy(&rData, incomingData, sizeof(rData));
-  //
+  
 }
 
 
-void startespnow(){
+void startespnow(){ // Remeber to register mac addresses before sending data;
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
@@ -113,33 +205,44 @@ void registermac(uint8_t address[]){
 }
 
 
-
-
-
-
 void setup() {
   Serial.begin(115200);
-  
+  pinMode(2,OUTPUT);
+  ledcSetup(0, 100, 12);
+  ledcAttachPin(27, 0); 
+  ledcWrite(0, 0);
+  digitalWrite(2,LOW);
+  morseloop();
 
-  //Starts Wifi, mDNS, OTA, and WebSerial
-  Core.startup(setMACAddress, NAME, server);
-  startespnow();
-  // registermac(broadcastAddress);
+  //Due to Shoddy Wifi Connection, this lamp will be completely offline.
 
+
+  // Core.startup(setMACAddress, NAME, server);
+  // startespnow();
+  // registermac(m_masterserver);
 
 
 
 }
 
-unsigned long ttime = millis();
+
 
 void loop() {
 
-if (millis() - ttime > 2000){
-  // Serial.println("Hi...");
-  ttime = millis();
-}
+ if(morsebootflag == 1)
+  {
+    ttime = millis();
+    Serial.println("Immediate Trigger");
+    morseloop();
+    delay(100);
+    IDx = asynctimer.setInterval([]() {
+      Serial.println("Execute IDx");
+      Serial.printf("Time since last loop: %d\n", millis()-ttime);
+      ttime = millis();
+      morseloop();
+    }, morseperiod);
+    morsebootflag = 2;
+  }
 
-
-asynctimer.handle();
+  asynctimer.handle();
 }

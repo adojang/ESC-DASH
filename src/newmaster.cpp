@@ -74,29 +74,52 @@ dataPacket rData; // data to recieve
 /* Configuration and Setup */
 
 unsigned long emergencyTrigger = 0;
-bool RFID1_complete = true;
+bool RFID1_complete = false;
 bool RFID2_complete = false;
 bool RFID3_complete = false;
 bool RFID4_complete = false;
 bool rfiddoorlock = false;
-bool resetrfidvalues = false;
 unsigned long ttime = millis();
 unsigned long time250 = millis();
 int keypadtrigger = 0;
 
+unsigned short attic_status_timer = 0;
+unsigned short clock_status_timer = 0;
+unsigned short bike_status_timer = 0;
+unsigned short RFID1_status_timer = 0;
+unsigned short RFID2_status_timer = 0;
+unsigned short RFID3_status_timer = 0;
+unsigned short RFID4_status_timer = 0;
+unsigned short thumbreader_status_timer = 0;
+
 
 #pragma region Cards
 /* Cards */
-Card restart_master(&dashboard, BUTTON_CARD, "Restart Server"); //momentary
+
 Card timesinceboot(&dashboard, ENERGY_CARD, "Time Since Boot", "min");
+Card restart_master(&dashboard, BUTTON_CARD, "Restart Server"); //momentary
+Card restart_attic(&dashboard, BUTTON_CARD, "Restart Attic"); //momentary
+
+/*Online Status*/
+Card attic_status(&dashboard, STATUS_CARD, "Attic", "warning");
+Card clock_status(&dashboard, STATUS_CARD, "Clock", "warning");
+Card bike_status(&dashboard, STATUS_CARD, "Bike", "warning");
+Card RFID1_status(&dashboard, STATUS_CARD, "RFID1", "warning");
+Card RFID2_status(&dashboard, STATUS_CARD, "RFID2", "warning");
+Card RFID3_status(&dashboard, STATUS_CARD, "RFID3", "warning");
+Card RFID4_status(&dashboard, STATUS_CARD, "RFID4", "warning");
+Card thumbreader_status(&dashboard, STATUS_CARD, "Thumb Reader", "warning");
+
+Card tomb_status(&dashboard, STATUS_CARD, "Tomb", "warning");
+
+
 
 /* Attic */
 Card humanchain_card(&dashboard, BUTTON_CARD, "Open Human Chain Door"); // momentary
-Card restart_attic(&dashboard, BUTTON_CARD, "Restart Attic"); //momentary
 Card trim1(&dashboard, BUTTON_CARD, "Trim Clock Up"); //momentary
 Card trim2(&dashboard, BUTTON_CARD, "Trim Clock Down"); //momentary
 Card clockjoystick(&dashboard, JOYSTICK_CARD, "Clock Control", "lockY");
-Card reset_RFID(&dashboard, BUTTON_CARD, "Reset RFID"); //momentary
+Card reset_RFID(&dashboard, BUTTON_CARD, "Reset RFID Puzzle"); //momentary
 
 Card lockdoor(&dashboard, BUTTON_CARD, "Lock RFID Door"); //momentary
 
@@ -122,8 +145,9 @@ Card thumbreader_card(&dashboard, BUTTON_CARD, "Overide Thumb Reader"); //moment
 
 /* Tabs */
 Tab attic(&dashboard, "Attic");
-Tab tomb(&dashboard, "Ancient Tomb");
 Tab train(&dashboard, "All Aboard");
+Tab tomb(&dashboard, "Ancient Tomb");
+
 
 #pragma endregion Cards
 
@@ -151,8 +175,31 @@ void triggerDoor(int pin){
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");}
 
 
+void handleStatus(unsigned short & checktimer, Card* checkCard){
+    
+        if(checktimer == 0){
+          //Initialize Timer.
+          checkCard->update("Connected", "success");
+          checktimer = asynctimer.setTimeout([checkCard]() {
+          checkCard->update("Disconnected", "danger");
+          }, 3000);
+      } else{
+          //Cancel Old Timer, and set a new one.
+          asynctimer.cancel(checktimer);
+          checkCard->update("Connected", "success");
+          checktimer = asynctimer.setTimeout([checkCard]() {
+         checkCard->update("Disconnected", "danger");
+         }, 3000);
+    }
+  }
+
+
+
+
+
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
+
 
   if(rData.origin == train_keypad && rData.sensor == train_keypad){
   keypadtrigger = rData.data;
@@ -174,22 +221,26 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1)
   {
-    // if(RFID1_complete == false){attic_rfid1.update(rData.data);}     
+    if(RFID1_complete == false){attic_rfid1.update(rData.data, "warning");}     
+    
+    if(rData.data == 0) {attic_rfid1.update("None", "warning");}  
 
-    // if (rData.data == 100){
-    //   attic_rfid1.update("COMPLETE");
-    //   RFID1_complete = true;
-    // }
-    attic_rfid1.update("COMPLETE");
+    if (rData.data == 100){
+      attic_rfid1.update("COMPLETE","success");
+      RFID1_complete = true;
+    }
+    // attic_rfid1.update("COMPLETE", "success");
     dashboard.sendUpdates();
   }
 
   if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
   {
-    if(RFID2_complete == false){attic_rfid2.update(rData.data);}
+    if(RFID2_complete == false){attic_rfid2.update(rData.data, "warning");}
+
+    if(rData.data == 0) {attic_rfid2.update("None", "warning");} 
 
     if (rData.data == 100){
-      attic_rfid2.update("COMPLETE");
+      attic_rfid2.update("COMPLETE", "success");
       RFID2_complete = true;
     }
     dashboard.sendUpdates();
@@ -197,10 +248,12 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3)
   {
-    if(RFID3_complete == false){attic_rfid3.update(rData.data);}
+    if(RFID3_complete == false){attic_rfid3.update(rData.data, "warning");}
+
+    if(rData.data == 0) {attic_rfid3.update("None", "warning");} 
 
     if (rData.data == 100){
-     attic_rfid3.update("COMPLETE");
+     attic_rfid3.update("COMPLETE", "success");
     RFID3_complete = true;
     }
     dashboard.sendUpdates();
@@ -208,14 +261,34 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4)
   {
-    if(RFID4_complete == false){ attic_rfid4.update(rData.data);}
+    if(RFID4_complete == false){ attic_rfid4.update(rData.data, "warning");}
+
+    if(rData.data == 0) {attic_rfid4.update("None", "warning");} 
 
     if (rData.data == 100){
-      attic_rfid4.update("COMPLETE");
+      attic_rfid4.update("COMPLETE", "success");
       RFID4_complete = true;
     }
     dashboard.sendUpdates();
   }
+
+  /* Status Updates */
+  if(rData.origin == atticmaster && rData.sensor == status_alive) handleStatus(attic_status_timer, &attic_status);
+  if(rData.origin == attic_clock && rData.sensor == status_alive) handleStatus(clock_status_timer, &clock_status);
+  if(rData.origin == attic_bike && rData.sensor == status_alive)  handleStatus(bike_status_timer, &bike_status);
+  if(rData.origin == attic_RFID1 && rData.sensor == status_alive) handleStatus(RFID1_status_timer, &RFID1_status);
+  if(rData.origin == attic_RFID2 && rData.sensor == status_alive) handleStatus(RFID2_status_timer, &RFID2_status);
+  if(rData.origin == attic_RFID3 && rData.sensor == status_alive) handleStatus(RFID3_status_timer, &RFID3_status);
+  if(rData.origin == attic_RFID4 && rData.sensor == status_alive) handleStatus(RFID4_status_timer, &RFID4_status);
+  if(rData.origin == train_thumb && rData.sensor == status_alive) handleStatus(thumbreader_status_timer, &thumbreader_status);
+
+
+
+
+
+
+
+
 }
 
 
@@ -244,9 +317,20 @@ void configDash(){
   dashboard.setTitle("Escape Room Master Control");
   sData.origin = 0x00;
 
+  /*Status Cards*/
+  attic_status.update("Disconnected", "danger");
+  clock_status.update("Disconnected", "danger");
+  bike_status.update("Disconnected", "danger");
+  RFID1_status.update("Disconnected", "danger");
+  RFID2_status.update("Disconnected", "danger");
+  RFID3_status.update("Disconnected", "danger");
+  RFID4_status.update("Disconnected", "danger");
+  thumbreader_status.update("Disconnected", "danger");
+  tomb_status.update("Disconnected", "danger");
+
   /* Attic */
   humanchain_card.setTab(&attic);
-  restart_attic.setTab(&attic);
+  // restart_attic.setTab(&attic);
   trim1.setTab(&attic);
   trim2.setTab(&attic);
   clockjoystick.setTab(&attic);
@@ -259,7 +343,7 @@ void configDash(){
   attic_rfid2.setTab(&attic);
   attic_rfid3.setTab(&attic);
   attic_rfid4.setTab(&attic);
-  humanchain_card.setSize(6,6,6,6,6,6);
+  // humanchain_card.setSize(6,6,6,6,6,6);
 
   /* Tomb */
   sennet_card.setTab(&tomb);
@@ -310,7 +394,8 @@ thumbreader_card.attachCallback([](int value){
 buttonTimeout(&thumbreader_card);
   Serial.printf("Thumbreader Triggered\n");
   WebSerial.println("Thumbreader Triggered via web");
-  sData.sensor = train_thumb; 
+  sData.origin = masterserver;
+  sData.sensor = masterserver;
   sData.data = 1;
   esp_err_t result = esp_now_send(m_train_thumb, (uint8_t *) &sData, sizeof(sData));
   if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
@@ -364,12 +449,28 @@ reset_RFID.attachCallback([](int value){ //Reset the RFID Values by restarting t
 buttonTimeout(&reset_RFID);
 Serial.println("RFID RESET triggered");
 WebSerial.printf("RFID RESET triggered\n");
-resetrfidvalues = true;
 
-// RFID1_complete = false;
+
+RFID1_complete = false;
 RFID2_complete = false;
 RFID3_complete = false;
 RFID4_complete = false;
+
+sData.origin = masterserver;
+sData.sensor = masterserver;
+sData.data = 77;
+
+//Reset Attic
+esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+
+//Restart RFID
+esp_now_send(m_RFID1, (uint8_t *) &sData, sizeof(sData));
+esp_now_send(m_RFID2, (uint8_t *) &sData, sizeof(sData));
+esp_now_send(m_RFID3, (uint8_t *) &sData, sizeof(sData));
+esp_now_send(m_RFID4, (uint8_t *) &sData, sizeof(sData));
+
+
+
 });
 
 lockdoor.attachCallback([](int value){
@@ -465,10 +566,10 @@ sData.data = 0;
 
   //Initialize Statues'
   lockdoor_status.update("Door Unlocked", "success");
-  attic_rfid1.update("None", "danger");
-  attic_rfid2.update("None", "danger");
-  attic_rfid3.update("None", "danger");
-  attic_rfid4.update("None", "danger");
+  attic_rfid1.update("None", "warning");
+  attic_rfid2.update("None", "warning");
+  attic_rfid3.update("None", "warning");
+  attic_rfid4.update("None", "warning");
   DOORTOUCH.update("Startup", "idle");
   dashboard.sendUpdates();
 }
@@ -477,7 +578,7 @@ void updateTime(){
 
   int seconds = millis() / 1000;
   int minutes = seconds / 60;
-  float hours = minutes / 60;
+  int hours = minutes / 60;
 
 
 
@@ -490,7 +591,8 @@ void updateTime(){
     timesinceboot.update(timeA, "min");
 
     } else {
-        timesinceboot.update(hours, "hours");
+      String timeB = String(hours) + ":" + String(minutes % 60) + ":" + String(seconds % 60);
+        timesinceboot.update(timeB, "sec");
     }
   }
   dashboard.sendUpdates();
@@ -504,6 +606,11 @@ void setup() {
   registermac(m_clock);
   registermac(m_atticmaster);
   registermac(m_train_thumb);
+  registermac(m_train_keypad);
+  registermac(m_RFID1);
+  registermac(m_RFID2);
+  registermac(m_RFID3);
+  registermac(m_RFID4);
   configDash();
   startButtonCB();
   

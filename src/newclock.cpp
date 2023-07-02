@@ -4,7 +4,8 @@
   Adriaan van Wijk
   22 May 2023
 
-  This code controls 4 relays which will arm and disarm electromagnetic locks.
+  This code is part of a multi-node project which involes Esc Rooms in Tygervallei,
+  South Africa.
 
   Copyright [2023] [Proxonics (Pty) Ltd]
 
@@ -22,79 +23,57 @@
   --------------------------------------------------------------------------
 */
 
-#define NAME "clock"
-#define MACAD 0xA2 // Refer to Table in Conventions
-
-
-/* Kernal*/
-#include <Arduino.h>
-#include <config.h>
-#include <encode.h>
-
-/* ESP-DASH */
-#include <ArduinoJson.h>
-#include <AsyncTimer.h>
-
-/* Wifi and mDNS */
-#include <WiFi.h>
-#include <esp_wifi.h>
-#include <ESPmDNS.h>
-
-/* ESP-NOW */
-#include <esp_now.h>
-
-/* Elegant OTA */
-#include <AsyncElegantOTA.h>
-
-
+#include <EscCore.h>
 #include <Wire.h>
 #include <VL53L0X.h>
 
-/*************************WebSerial ****************************************/
-#include <WebSerial.h>
-/* Message callback of WebSerial */
-void recvMsg(uint8_t *data, size_t len){
-  WebSerial.println("Received Data...");
-  String d = "";
-  for(int i=0; i < len; i++){
-    d += char(data[i]);
-  }
-  WebSerial.println(d);
+#define NAME "clock"
+#define setMACAddress m_clock
 
-   if (d == "stop"){
-    WebSerial.println("stop");
-  ledcWrite(0, 0);
-  ledcWrite(1, 0);
-  }
+#pragma region mac
+// Control
+uint8_t m_masterserver[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00};
+uint8_t m_trainmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
+uint8_t m_tombmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
+uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
 
-  if (d == "trim1"){
-    WebSerial.println("Trim 1");
-    ledcWrite(0, 200);
-  ledcWrite(1, 0);
-  delay(5000);
-
-  ledcWrite(0, 0);
-  ledcWrite(1, 0);
-  delay(1000);
-  }
-
-    if (d == "trim2"){
-    WebSerial.println("Trim 2");
-    ledcWrite(0, 0);
-    ledcWrite(1, 200);
-    delay(5000);
-
-    ledcWrite(0, 0);
-    ledcWrite(1, 0);
-    delay(1000);
-  }
+// Attic
+uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
+uint8_t m_attic_bike[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1};
+uint8_t m_clock[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA2};
+uint8_t m_attic_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA3};
+uint8_t m_RFID1[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA4};
+uint8_t m_RFID2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA5};
+uint8_t m_RFID3[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA6};
+uint8_t m_RFID4[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA7};
+uint8_t m_attic_clock2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA8};
+uint8_t m_attic_morse[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA9};
 
 
+// Tomb
+uint8_t m_tomb_sennet[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0};
+uint8_t m_tomb_chalice[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB1};
+uint8_t m_tomb_ringReader[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB2};
+uint8_t m_tomb_tangrum[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB3};
+uint8_t m_tomb_maindoorOverride[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB4};
+uint8_t m_tomb_slidedoorOverride[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB5};
 
-}
+// Train
+uint8_t m_train_keypad[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC0};
+uint8_t m_train_thumb[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC1};
+uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
+#pragma endregion mac
 
-/*************************WebSerial ****************************************/
+AsyncTimer asynctimer(35);
+AsyncWebServer server(80);
+ESPDash dashboard(&server,false);
+esp_now_peer_info_t peerInfo;
+EscCore Core;
 
+dataPacket sData; // data to send
+dataPacket rData; // data to recieve
+
+/* Configuration and Setup */
 VL53L0X sensor;
 
 const int inPin = 15;
@@ -106,27 +85,11 @@ int sequence = 0;
 unsigned long t = 0;
 int servoPos = 0;
 
-// REPLACE WITH THE MAC Address of your receiver 
-uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server DIRECTLY to CLOCK.
-uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
+const int PWM_pin1 = 4; // PWM Pin
+const int PWM_pin2 = 5; // PWM Pin
 
 
-
-/* ESP Async Timer */
-AsyncTimer asynctimer(35);
-
-/* WiFi Credentials */
-const char* ssid = WIFI_SSID; // SSID
-const char* password = WIFI_PASS; // Password
-
-/* ESP-NOW Structures */
- dataPacket sData; // data to send
- dataPacket rData; // data to recieve
-
-/* Setup */
-AsyncWebServer server(80);
-esp_now_peer_info_t peerInfo;
-
+/* Functions */
 void activateServo(){
   // 7.5mm per second speed
   // 6 seconds to go 45mm.
@@ -149,9 +112,9 @@ void reverseServo(){
   delay(1000);
 }
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
-}
+
+
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");}
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
@@ -186,87 +149,38 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 }
 
-void startWifi()
-{
-  /* Connect WiFi */
- WiFi.softAP(NAME, "pinecones", 0, 1, 4);
- WiFi.mode(WIFI_AP_STA);
-  esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
 
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(ssid, password);
-  unsigned long wifitimeout = millis();
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-    if ((millis() - wifitimeout) > 10000) ESP.restart();
-  }
-  if (WiFi.waitForConnectResult() != WL_CONNECTED)
-  {
-    Serial.printf("WiFi Failed!\n");
-    return;
-  }else
-  {Serial.println("\n\nWIFI CONNECTED!");}
-
-  if (!MDNS.begin(NAME))
-  {
-    Serial.println("Error setting up MDNS responder!");
-    while (1)
-    {
-      delay(1000);
-    }
-  }
-  Serial.println("mDNS responder started");
- 
-  /* Elegant OTA */
-  AsyncElegantOTA.begin(&server, "admin", "admin1234");
-
-  /* WEB SERIAL REQUIRED TO FUNCTION */
-  WebSerial.begin(&server);
-  WebSerial.msgCallback(recvMsg);
-  
-
-  server.begin();
-  MDNS.addService("http", "tcp", 80);
-  WebSerial.println("mDNS responder started");
-  WebSerial.println("WebSerial Service started");
-}
-
-void startespnow(){
-  // Init ESP-NOW
+void startespnow(){ // Remeber to register mac addresses before sending data;
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
-
-  //Register Callback Functions
   esp_now_register_send_cb(OnDataSent);
   esp_now_register_recv_cb(OnDataRecv);
+}
 
-  // Register peer
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 0;  
+void registermac(uint8_t address[]){
+  memcpy(peerInfo.peer_addr, address, 6);
+  peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  
-  // Add peer        
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
+  if (esp_now_add_peer(&peerInfo) != ESP_OK)
+  {
     Serial.println("Failed to add peer");
     return;
   }
-
-
 }
 
-
-const int PWM_pin1 = 4; // PWM Pin
-const int PWM_pin2 = 5; // PWM Pin
-
+void statusUpdate(){
+  sData.origin = attic_clock;
+  sData.sensor = status_alive;
+  esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+}
 
 
 void setup() {
   Serial.begin(115200);
 
+  //This needs to start first to prevent motor drift
   pinMode(PWM_pin1, OUTPUT);
   pinMode(PWM_pin2, OUTPUT);
   ledcAttachPin(PWM_pin1, 0);
@@ -276,8 +190,14 @@ void setup() {
   ledcWrite(0, 0);
   ledcWrite(1, 0);
 
-  startWifi();
+
+  Core.startup(setMACAddress, NAME, server);
   startespnow();
+  registermac(m_masterserver);
+  registermac(m_atticmaster);
+
+  sData.origin = attic_clock;
+  sData.sensor = attic_clock;
 
   Wire.begin();
   sensor.init();
@@ -288,7 +208,10 @@ void setup() {
   pinMode(18,OUTPUT);
   digitalWrite(18,HIGH);
 
-  }
+  asynctimer.setInterval([]() {statusUpdate();},  1000);
+
+}
+
 
 void getReadings() {
   
@@ -336,11 +259,11 @@ void loop() {
   }
   printSequence();
 
-
+// WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
   delay(250); // changed from original 500;
+  //This delay function must be removed for accurate high speed sampling...
 
-
-
+  //WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
 
 
   asynctimer.handle();

@@ -81,12 +81,15 @@ int emergencyTrigger = 0;
 int touchtriggertimeout = 0;
 const unsigned long emergencyButtonTimeout = 5000;
 
-bool RFID1_status = true;
-bool RFID2_status = true;
-bool RFID3_status = true;
-bool RFID4_status = true;
+//WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
 
-bool RFID1_armed = false;
+bool RFID1_status = false;
+bool RFID2_status = false;
+bool RFID3_status = false;
+bool RFID4_status = false;
+
+//WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
+
 
 bool doortimeoutflag = false;
 unsigned long doortimeout = 0;
@@ -163,10 +166,10 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
   
     if (rData.origin == masterserver && rData.sensor == masterserver)
     {
-        if (rData.data == 88)
-            doorlocked = true; // locked
-        if (rData.data == 99)
-            doorlocked = false; // unlocked
+        if (rData.data == 88){doorlocked = true;} // locked
+            
+        if (rData.data == 99){doorlocked = false;} // unlocked
+            
     }
 
     if ((rData.origin == masterserver) && (rData.data == 66))
@@ -183,12 +186,39 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
         ESP.restart();
     }
     
+      if(rData.origin == masterserver && rData.sensor == masterserver && rData.data == 77){
+        RFID1_status = false;
+        RFID2_status = false;
+        RFID3_status = false;
+        RFID4_status = false;
+        WebSerial.println("RFID Status Reset");
+        Serial.println("RFID Status Reset");
+
+
+// rData.data = 0;
+// rData.origin = attic_RFID1;
+// rData.sensor = attic_RFID1;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+// rData.origin = attic_RFID2;
+// rData.sensor = attic_RFID2;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+// rData.origin = attic_RFID3;
+// rData.sensor = attic_RFID3;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+// rData.origin = attic_RFID4;
+// rData.sensor = attic_RFID4;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+
+
+
+
+  }
     // Forward Data from Sensors to Master Server
     if (rData.origin != masterserver){
         esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
     }
 
-  /*    STATUS UPDATES    */
+    /*    STATUS UPDATES    */
     if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1){
     RFID1_status = true;
     //Send an Updated 'flag' to master
@@ -263,6 +293,11 @@ void registermac(uint8_t address[]){
   }
 }
 
+void statusUpdate(){
+  sData.origin = atticmaster;
+  sData.sensor = status_alive;
+  esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+}
 
 void setup() {
   Serial.begin(115200);
@@ -320,6 +355,30 @@ void setup() {
 
 
 asynctimer.setInterval([]() {getTouch();},  250);
+
+
+asynctimer.setInterval([]() {statusUpdate();},  1000);
+
+
+
+// delay(2000);
+
+// rData.data = 100;
+// rData.origin = attic_RFID1;
+// rData.sensor = attic_RFID1;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+// rData.origin = attic_RFID2;
+// rData.sensor = attic_RFID2;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+// rData.origin = attic_RFID3;
+// rData.sensor = attic_RFID3;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+// rData.origin = attic_RFID4;
+// rData.sensor = attic_RFID4;
+// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+
+
+
 
 emergencyTrigger = millis();
 touchtriggertimeout = millis();

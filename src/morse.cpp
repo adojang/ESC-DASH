@@ -264,7 +264,7 @@ void loop()
   {
     Serial.println("morsebootflag = 1"); // end of loop and initial run.
       IDx = asynctimer.setInterval([]() {
-      Serial.println("Set Interval");
+      Serial.println("Initialize Morse Interval Once.");
       morseloop();
     }, morseperiod);
     morsebootflag = 2;

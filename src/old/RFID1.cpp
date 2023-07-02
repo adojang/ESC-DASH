@@ -252,7 +252,7 @@ void loop() {
   }
 
   
-      for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+     for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     // Look for new cards
 
     if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {

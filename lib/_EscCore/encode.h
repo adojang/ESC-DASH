@@ -6,6 +6,7 @@
 #define tombmaster 0x02
 #define atticmaster 0x03
 
+
 //Attic
 #define attic_humanchain 0xA0
 #define attic_bike 0xA1
@@ -40,12 +41,14 @@
 #define door4 21
 
 //Standard Send/Recieve Data Structure
+#define status_alive 120
 
 typedef struct dataPacket {
 int origin;
 int sensor;
 int data;
 } dataPacket;
+
 
 
 #endif

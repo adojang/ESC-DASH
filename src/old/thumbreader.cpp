@@ -156,7 +156,6 @@ float absolute(float value){
   return value;
 }
 
-
 void callibrateReader(){
 for (int j=0; j<100; j++){
   val = hallRead();
@@ -326,8 +325,6 @@ void setup() {
 
 
 void loop() {
-
-
 
 //Take 25 Readings and Average Them.
 for (int j=0; j<20; j++){
