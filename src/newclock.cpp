@@ -79,6 +79,8 @@ VL53L0X sensor;
 const int inPin = 15;
 int servoPin = 13;
 
+bool oneShot = false;
+
 int sens1 = 0; 
 int sens2 = 0; 
 int sequence = 0;
@@ -87,7 +89,7 @@ int servoPos = 0;
 
 const int PWM_pin1 = 4; // PWM Pin
 const int PWM_pin2 = 5; // PWM Pin
-
+unsigned long stoptimer = millis();
 
 /* Functions */
 void activateServo(){
@@ -112,9 +114,9 @@ void reverseServo(){
   delay(1000);
 }
 
-
-
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");}
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  // WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+  }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
@@ -131,7 +133,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   }
 
   if(rData.origin == masterserver && rData.data ==20){
-        WebSerial.println("Trim 2");
     ledcWrite(0, 0);
     ledcWrite(1, 200);
     delay(2000);
@@ -139,6 +140,36 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     ledcWrite(0, 0);
     ledcWrite(1, 0);
     delay(1000);
+  }
+
+if(rData.origin == masterserver && rData.sensor == attic_clock){
+  //Max / Min +- 60
+
+  // int speeddata = rData.data*3.335;
+int speeddata = rData.data*4.25;
+  Serial.printf("Seed Data %d\n", speeddata);
+
+  if (rData.data > 0){
+    ledcWrite(0, speeddata);
+    ledcWrite(1, 0);
+    Serial.println("Going A");
+    stoptimer = millis();
+  }
+
+  if(rData.data < 0){
+    ledcWrite(0, 0);
+    ledcWrite(1, -speeddata);
+    Serial.println("Going B");
+    stoptimer = millis();
+}
+}
+
+
+  if(rData.origin == masterserver && rData.sensor == masterserver){
+
+    if(rData.data == 0) oneShot = true; //Lock Clock
+    if(rData.data == 1) oneShot = false; //Unlock Clock
+
   }
   // if (rData.origin == masterserver && rData.sensor == masterserver){
   //   if(rData.data == 1) {activateServo();} // Manually Trigger Clock Servo
@@ -196,6 +227,8 @@ void setup() {
   registermac(m_masterserver);
   registermac(m_atticmaster);
 
+  pinMode(2,OUTPUT);
+  digitalWrite(2,HIGH); // PRove that Wifi is Connected Rightly.
   sData.origin = attic_clock;
   sData.sensor = attic_clock;
 
@@ -219,26 +252,36 @@ void getReadings() {
 
   if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
 
-  if (sensor.readRangeContinuousMillimeters()<100) {
+  if (sensor.readRangeContinuousMillimeters()<50) {
     sens1 = HIGH;
   }
   else {
     sens1 = LOW;
   }
 
-  Serial.print("sensor 1: ");
-  Serial.print(sens1);
-  Serial.print(", sensor 2: ");
-  Serial.println(sens2);
-  Serial.println(sensor.readRangeContinuousMillimeters());
+  Serial.printf("sensor 1: %d\n", sens1);
+
+  Serial.printf("sensor 2: %d\n", sens2);
+  
+  // Serial.println(sensor.readRangeContinuousMillimeters());
 }
 
 void printSequence() {
-  Serial.print("Sequence: ");
-  Serial.println(sequence);
+  Serial.printf("Sequence: %d\n", sequence);
 }
 
+unsigned long ttime = millis();
 void loop() {
+
+  
+  if((millis() - stoptimer > 250) && (sequence == 0)){
+    ledcWrite(0, 0);
+    ledcWrite(1, 0);
+    stoptimer = millis();
+}
+
+  if (millis() - ttime > 500){
+    ttime = millis();
   
   getReadings();
   // printSequence();
@@ -246,24 +289,27 @@ void loop() {
   //Sense1 is where the hole will be.
   //Sense2 is where the hole is covered.
 
-  if ((sequence==0) && (sens1==HIGH) and (sens2==HIGH)){ // both are initially open.
+  if ((sequence==0) && (sens1==HIGH) && (sens2==HIGH)){ // both are initially open.
     sequence=1;
   }
   
-  if ((sequence==1) and (sens1==LOW) and (sens2==HIGH)) { // correct holes covered, trigger
-    sequence=0;
+  if ((sequence==1) && (sens1==LOW) && (sens2==HIGH) && (oneShot == false)) { // correct holes covered, trigger
+    
+    sData.origin = attic_clock;
+    sData.sensor = attic_clock;
+    sData.data = 1;
+    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
     activateServo();
+    oneShot = true;
+    sequence=0;
   } 
-  else if ((sequence==1) and (sens1==LOW) and (sens2==LOW)) { // both are open
+  else if ((sequence==1) && (sens1==LOW) && (sens2==LOW)) { // both are covered
     sequence=0;
   }
   printSequence();
-
+  }
 // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
-  delay(250); // changed from original 500;
-  //This delay function must be removed for accurate high speed sampling...
-
-  //WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
+  // delay(250); // changed from original 500;
 
 
   asynctimer.handle();

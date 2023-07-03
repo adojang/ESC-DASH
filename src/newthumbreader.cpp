@@ -76,7 +76,7 @@ dataPacket rData; // data to recieve
 unsigned long ttime = millis();
 // Thumb Variables
 float OPENVALUE = 30;
-float tuneconstant = 0.5; // Value to start with. Callibration should sort this out.
+float tuneconstant = 0.75; // Value to start with. Callibration should sort this out.
 float samples1[50];
 float averages[10] = {40,40,40,40,40,40,40,40,40,40};
 int val = 0;
@@ -107,7 +107,9 @@ void opensesame(int pin){
 
 
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");}
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  // WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+  }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) 
 {
@@ -254,8 +256,10 @@ previousEMA = filteredValue;
   
 if (millis() - ttime > 2000){
   ttime = millis();
-  WebSerial.printf("Read Value: %f\n", (absolute(filteredValue)));
+  WebSerial.printf("Absolute Read Value: %f\n", (absolute(filteredValue)));
   WebSerial.printf("Threshold Value: %f\n", OPENVALUE*tuneconstant);
+  WebSerial.printf("ThreshHold - Read Value: [%f > %f]  \n",absolute(OPENVALUE - filteredValue), tuneconstant*OPENVALUE);
+
   Serial.println(absolute(OPENVALUE - filteredValue));
 }
 

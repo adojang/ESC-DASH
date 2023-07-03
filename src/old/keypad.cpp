@@ -118,6 +118,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
     if (rData.origin == masterserver && rData.sensor == masterserver)
     {
+        WebSerial.println("Door Data Recieved from MAster");
       if (rData.data == 1) // Door Open
       {
         digitalWrite(2,HIGH); // Turn off Red LED

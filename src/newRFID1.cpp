@@ -94,7 +94,28 @@ int HexCount = 0;
 
 /* Functions */
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");}
+void sendData()
+{
+  HexCount = 0;
+
+  if (hex1 == true){
+    HexCount = HexCount + 1;
+  }
+
+  
+  sData.origin = attic_RFID1;
+  sData.sensor = attic_RFID1;
+  sData.data = HexCount;
+  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+  if (result == ESP_OK) { Serial.println("Sent with success");}
+  else {Serial.println("Error sending the data");}
+
+}
+
+
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  // WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+  }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) 
 {
@@ -102,6 +123,10 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
   if(rData.origin == masterserver && rData.sensor == masterserver && rData.data == 77){
     Serial.println("Restarting");
     ESP.restart();
+  }
+
+  if(rData.origin == atticmaster && rData.sensor == atticmaster && rData.data == 0){
+    sendData(); // refresh master Data after the atticmaster restarts.
   }
 }
 
@@ -132,22 +157,6 @@ void statusUpdate(){
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
 }
 
-void sendData()
-{
-  HexCount = 0;
-
-  if (hex1 == true){
-    HexCount = HexCount + 1;
-  }
-
-  
-
-  sData.data = HexCount;
-  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-  if (result == ESP_OK) { Serial.println("Sent with success");}
-  else {Serial.println("Error sending the data");}
-
-}
 
 void setup() {
   Serial.begin(115200);
@@ -213,8 +222,8 @@ void loop() {
       Serial.println();
       Serial.println(uidText);
 
-      if(uidText == "901fd026"){
-        Serial.println("reader1");
+      if(uidText == "b141a11d"){
+        Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
       } 
 

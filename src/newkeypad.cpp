@@ -121,11 +121,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSeria
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
     memcpy(&rData, incomingData, sizeof(rData));
-
+    WebSerial.println("Door Data Recieved from MAster");
     if (rData.origin == masterserver && rData.sensor == masterserver)
     {
+
       if (rData.data == 1) // Door Open
       {
+        WebSerial.println("Door Data Datat 1");
         digitalWrite(2,HIGH); // Turn off Red LED
         digitalWrite(22,HIGH);
 
