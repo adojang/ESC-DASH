@@ -24,10 +24,9 @@
 */
 
 #include <EscCore.h>
-#include <config.h>
 
-#define NAME "atticmaster"
-#define setMACAddress m_atticmaster
+#define NAME "tombmaster"
+#define setMACAddress m_tombmaster
 
 #pragma region mac
 // Control
@@ -146,19 +145,15 @@ if (readingcounter >= 100) {
 }
 
 void triggerDoor(int pin){
-  digitalWrite(pin, HIGH);
+  digitalWrite(pin, LOW);
   Serial.println("Door Opened");
   emergencyTrigger = millis(); // to prevent unwanted emf from accidently triggering.
 
   asynctimer.setTimeout([pin]() {
-      digitalWrite(pin, LOW);
+      digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
       emergencyTrigger = millis(); // to prevent unwanted emf from accidently triggering.
     }, 3000);
-}
-
-void IRAM_ATTR emergency(){
-  emergencyFlag = 1;
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -169,118 +164,23 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 {
   memcpy(&rData, incomingData, sizeof(rData));
   
-    if(rData.origin == masterserver && rData.sensor == masterserver && rData.data == 50){
-      //Override RFID
-
-      RFID1_status = true;
-      RFID2_status = true;
-      RFID3_status = true;
-      RFID4_status = true;
-
-    rData.data = 100;
-    rData.origin = attic_RFID1;
-    rData.sensor = attic_RFID1;
-    esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-    rData.origin = attic_RFID2;
-    rData.sensor = attic_RFID2;
-    esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-    rData.origin = attic_RFID3;
-    rData.sensor = attic_RFID3;
-    esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-    rData.origin = attic_RFID4;
-    rData.sensor = attic_RFID4;
-    esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-
-    }
-
-    if (rData.origin == masterserver && rData.sensor == masterserver)
-    {
-        if (rData.data == 88){doorlocked = true;} // locked
-            
-        if (rData.data == 99){doorlocked = false;} // unlocked
-            
+    if (rData.origin == tomb_chalice && rData.sensor == tomb_chalice && rData.data == 1){
+    emergencyTrigger = millis();
+    emergencyFlag = 0;
+    Serial.println("Chalice Button Pushed");
+    WebSerial.println("Chalice Button Pushed");
+    triggerDoor(18);
+    emergencyTrigger = millis(); // Weird relay back emf workaround
     }
 
     if ((rData.origin == masterserver) && (rData.data == 66))
-    { // Restart Attic and RFIDs
-        sData.origin = atticmaster;
-        sData.sensor = atticmaster;
-        sData.data = 66;
-        esp_now_send(m_RFID1, (uint8_t *)&sData, sizeof(sData));
-        esp_now_send(m_RFID2, (uint8_t *)&sData, sizeof(sData));
-        esp_now_send(m_RFID3, (uint8_t *)&sData, sizeof(sData));
-        esp_now_send(m_RFID4, (uint8_t *)&sData, sizeof(sData));
+    { // Restart Tomb and RFIDs
 
         delay(2000);
         ESP.restart();
     }
     
-      if(rData.origin == masterserver && rData.sensor == masterserver && rData.data == 77){
-        RFID1_status = false;
-        RFID2_status = false;
-        RFID3_status = false;
-        RFID4_status = false;
-        WebSerial.println("RFID Status Reset");
-        Serial.println("RFID Status Reset");
-
-
-// rData.data = 0;
-// rData.origin = attic_RFID1;
-// rData.sensor = attic_RFID1;
-// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-// rData.origin = attic_RFID2;
-// rData.sensor = attic_RFID2;
-// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-// rData.origin = attic_RFID3;
-// rData.sensor = attic_RFID3;
-// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-// rData.origin = attic_RFID4;
-// rData.sensor = attic_RFID4;
-// esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-
-
-
-
-  }
-    // Forward Data from Sensors to Master Server
-    if (rData.origin != masterserver && rData.origin != attic_bike){
-      WebSerial.println("Forward Data to Master (Proably from RFIDs)");   
-        esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-        if (result != ESP_OK) {
-          WebSerial.println("Error sending the data");
-        }
-    }
-
-    /*    STATUS UPDATES    */
-    if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1){
-    RFID1_status = true;
-    //Send an Updated 'flag' to master
-    rData.data = 100;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-  }
-
-    if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 2){
-    RFID2_status = true;
-    //Send an Updated 'flag' to master
-    rData.data = 100;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-  }
-
-    if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3 && rData.data >= 3){
-    RFID3_status = true;
-    //Send an Updated 'flag' to master
-    rData.data = 100;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-  }
-
-    if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4 && rData.data >= 6){
-    RFID4_status = true;
-    //Send an Updated 'flag' to master
-    rData.data = 100;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
-  }
-
-    if (rData.origin == masterserver && rData.sensor == attic_humanchain && rData.data){
+    if (rData.origin == masterserver && rData.sensor == tomb_maindoorOverride && rData.data){
       emergencyTrigger = millis();
       triggerDoor(5);
       Serial.println("Master Server Override");
@@ -288,20 +188,23 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
       emergencyTrigger = millis();
     }
 
-    if (rData.origin == masterserver && rData.sensor == attic_bike){
-    if (rData.data == 1) ledcWrite(1, (4000));
-
-    if(rData.data == 0) ledcWrite(1, (4000));
-}
-
-    if(rData.origin == attic_bike && rData.sensor == attic_bike)
-    {
-    //Send Data to LED to light up appropriately
-      //4000 / 100 = 40
-      ledcWrite(1, ((40)*rData.data));
-      // Serial.println(rData.data);
-
+    if (rData.origin == masterserver && rData.sensor == tomb_slidedoorOverride && rData.data){
+      emergencyTrigger = millis();
+      triggerDoor(18);
+      Serial.println("Master Server Override");
+      WebSerial.println("Master Server Override");
+      emergencyTrigger = millis();
     }
+
+    // Forward Data from Sensors to Master Server
+    if (rData.origin != masterserver){
+      WebSerial.println("Forward Data to Master (Proably from RFIDs)");   
+        esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
+        if (result != ESP_OK) {
+          WebSerial.println("Error sending the data");
+        }
+    }
+
 }
 
 
@@ -326,7 +229,7 @@ void registermac(uint8_t address[]){
 }
 
 void statusUpdate(){
-  sData.origin = atticmaster;
+  sData.origin = tombmaster;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
 }
@@ -337,56 +240,40 @@ void setup() {
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
-  registermac(m_RFID1);
-  registermac(m_RFID2);
-  registermac(m_RFID3);
-  registermac(m_RFID4);
+  registermac(m_tomb_chalice);
+  registermac(m_tomb_sennet);
+  registermac(m_tomb_tangrum);
 
   #pragma region gpio
   
-  pinMode(22, OUTPUT); // emergency Button GND
+  pinMode(22, OUTPUT); // out emergency Button 3.3V
   digitalWrite(22, HIGH);
-  pinMode(23, INPUT_PULLDOWN); // emergency Button
+  pinMode(23, INPUT_PULLDOWN); // emergency Button OUT
+
+
+// Changed for 25 and 26 the pins may have issues 12 must be output.
+  pinMode(12, OUTPUT); // IN emergency Button 3.3V
+  digitalWrite(12, HIGH);
+  pinMode(13, INPUT_PULLDOWN); // emergency Button IN
+
+
+  //Relay Outputs
   pinMode(2, OUTPUT);
-  pinMode(5, OUTPUT);
-  pinMode(18, OUTPUT);
-  pinMode(19, OUTPUT);
+  pinMode(5, OUTPUT); // Front Door
+  pinMode(18, OUTPUT); // Inner Door
+  pinMode(19, OUTPUT); // TOMB
   pinMode(21, OUTPUT);
-  digitalWrite(5, LOW);
+  
+  //Startup Sequence
+  digitalWrite(5, HIGH);
   delay(250);
-  digitalWrite(18, LOW);
+  digitalWrite(18, HIGH);
   delay(250);
-  digitalWrite(19, LOW);
+  digitalWrite(19, HIGH);
   delay(250);
   digitalWrite(21, HIGH);
-
- attachInterrupt(17, emergency, HIGH);
-
-  // BIKE LIGHT
-  ledcSetup(1, 100, 12); // Bike LED
-  ledcAttachPin(26, 1);
-  ledcWrite(1, 0);
-
-  analogReadResolution(12);
-
-  //GND Pin for PWM Controllers
-  pinMode(33, OUTPUT);
-  digitalWrite(33, LOW);
-  pinMode(25, OUTPUT);
-  digitalWrite(25, LOW);
-
-  //HumanTouch Pins
-  pinMode(34, INPUT);
-  pinMode(15, OUTPUT);
-  digitalWrite(15,HIGH);
-
-
-
-
   #pragma endregion gpio
 
-
-asynctimer.setInterval([]() {getTouch();},  250);
 
 
 asynctimer.setInterval([]() {statusUpdate();},  1000);
@@ -420,111 +307,66 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
   Serial.println("Trying to Reconnect");
 }
 
-int debounce(){
-  int value = 0;
-  for (int i = 0; i < 10; i++){
-    if (digitalRead(23) == 1) value++;
-    delay(5);
-  }
-
-  if( value > 8) return 1; // 80% sure it was a button press
-  else return 0;
-  
-}
-
 void loop() {
 
-
-
-if (millis() - ttime > 3000){ //Use this to print data regularly
-  ttime = millis();
-  WebSerial.println(RFID1_status);
-  WebSerial.println(RFID2_status);
-  WebSerial.println(RFID3_status);
-  WebSerial.println(RFID4_status);
-  // Serial.println("Still Alive, loop is still running. Check if Reconnect True:");
-  // Serial.println(WiFi.getAutoReconnect());
-  // Serial.println("Check if Connected: ");
-  Serial.println(WiFi.isConnected());
-}
 
 if (WiFi.isConnected() == false){
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   
   Serial.println("Start Reconnect Process");
+  digitalWrite(2,HIGH);
   WiFi.softAPdisconnect();
-  WiFi.disconnect();
-
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  delay(1000);
+  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
-  delay(500);
+  delay(1000);
+  startespnow();
+  digitalWrite(2,HIGH);
   while(!WiFi.isConnected()){
     Serial.println("Waiting Forever...");
     delay(200);
-  }
-
-}
-
-//2 Second Timeout for Doortouch
-if (doortimeoutflag == true && (millis() - doortimeout > 2000)){
-    Serial.println("DoorTouch Timeout. Now False");
-    WebSerial.println("DoorTouch Timeout. Now False");
-    doortimeoutflag = false;
-    DOORTOUCH = false;
-
-    sData.origin = atticmaster;
-    sData.sensor = attic_humanchain;
-    sData.data = 0;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
-}
-
-//The Timeout here is to prevent over triggering.
-if ((millis() - touchtriggertimeout > 2000) && (DOORTOUCH == true) && (RFID1_status == true) && (RFID2_status == true) && (RFID3_status == true) && (RFID4_status == true) && (doorlocked == false)){
-    DOORTOUCH = false;
-    touchtriggertimeout = millis();
-    Serial.println("Human Chain Puzzle Completed");
-    WebSerial.println("Human Chain Puzzle Completed. Opening Door");
-    emergencyTrigger = millis(); // Weird relay back emf workaround
-    triggerDoor(5);
-    emergencyTrigger = millis(); // Weird relay back emf workaround
-        
-        
-
-    // delay(100);
-    // triggerDoor(18, 2000);
-    // delay(100);
-    // triggerDoor(19, 2000);
-    // delay(100);
-    // triggerDoor(21, 2000);
+    digitalWrite(2,LOW);
   }
 
 
+}
 
-//Emergency Escape Button
-if (digitalRead(23) && (millis() - emergencyTrigger) >= 3000)
+
+if (millis() - ttime > 2000){ //Use this to print data regularly
+  ttime = millis();
+  WebSerial.println(digitalRead(23));
+  WebSerial.println(digitalRead(26));
+}
+
+
+
+//Emergency Escape Button OUT
+if ((digitalRead(23)) && (millis() - emergencyTrigger) >= 3000)
   {
-    if(debounce()){
     emergencyTrigger = millis();
-    WebSerial.println("Millis:");
-    WebSerial.println(millis());
-    WebSerial.printf("Trigger Value: %d\n\n", emergencyTrigger);
     emergencyFlag = 0;
     Serial.println("Emergency Button Pushed");
     WebSerial.println("Emergency Button Pushed");
     triggerDoor(5);
     emergencyTrigger = millis(); // Weird relay back emf workaround
-    } else{
-      WebSerial.println("Emergency Button was true, but debounce was false");
-    }
-    
+  }
+
+  //Emergency Escape Button IN
+  if ((digitalRead(13)) && (millis() - emergencyTrigger) >= 3000)
+  {
+    emergencyTrigger = millis();
+    emergencyFlag = 0;
+    Serial.println("Emergency Button Pushed");
+    WebSerial.println("Emergency Button Pushed");
+    triggerDoor(18);
+    emergencyTrigger = millis(); // Weird relay back emf workaround
   }
 
 
 
   asynctimer.handle();
 }
-
-
-
-
-

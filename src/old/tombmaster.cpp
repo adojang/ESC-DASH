@@ -214,9 +214,9 @@ void setup() {
   startwifi();
   startespnow();
 
-  pinMode(5, OUTPUT);
-  pinMode(18, OUTPUT);
-  pinMode(19, OUTPUT);
+  pinMode(5, OUTPUT); // main door
+  pinMode(18, OUTPUT); // sliding door
+  pinMode(19, OUTPUT); // tomb door
   pinMode(21, OUTPUT);
   digitalWrite(5, HIGH);
   delay(250);

@@ -156,6 +156,16 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
+  if(rData.origin == masterserver && rData.data == 66){
+    ESP.restart();
+  }
+
+  if(rData.origin == masterserver && rData.data == 55){
+    //Reset to original position
+    reverseServo();
+
+    //will not actually reverse unless clock is locked.
+  }
 
   if(rData.origin == masterserver && rData.data == 10){
   ledcWrite(0, 200);

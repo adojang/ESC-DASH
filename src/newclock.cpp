@@ -64,7 +64,7 @@ uint8_t m_train_thumb[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC1};
 uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
 #pragma endregion mac
 
-AsyncTimer asynctimer(35);
+AsyncTimer asynctimer;
 AsyncWebServer server(80);
 ESPDash dashboard(&server,false);
 esp_now_peer_info_t peerInfo;
@@ -80,7 +80,7 @@ const int inPin = 15;
 int servoPin = 13;
 
 bool oneShot = false;
-
+bool reverse = false;
 int sens1 = 0; 
 int sens2 = 0; 
 int sequence = 0;
@@ -92,12 +92,14 @@ const int PWM_pin2 = 5; // PWM Pin
 unsigned long stoptimer = millis();
 
 /* Functions */
+
+
 void activateServo(){
   // 7.5mm per second speed
   // 6 seconds to go 45mm.
   ledcWrite(0, 200);
   ledcWrite(1, 0);
-  delay(12000);
+  delay(11300);
 
   ledcWrite(0, 0);
   ledcWrite(1, 0);
@@ -105,9 +107,10 @@ void activateServo(){
 }
 
 void reverseServo(){
+  Serial.println("reverseservo");
   ledcWrite(0, 0);
   ledcWrite(1, 200);
-  delay(12000);
+  delay(7700);
 
   ledcWrite(0, 0);
   ledcWrite(1, 0);
@@ -120,6 +123,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
+
+
+    if(rData.origin == masterserver && rData.data == 55){
+      reverse = true;
+
+    //will not actually reverse unless clock is
+  }
 
 
   if(rData.origin == masterserver && rData.data == 10){
@@ -168,7 +178,10 @@ int speeddata = rData.data*4.25;
   if(rData.origin == masterserver && rData.sensor == masterserver){
 
     if(rData.data == 0) oneShot = true; //Lock Clock
-    if(rData.data == 1) oneShot = false; //Unlock Clock
+    if(rData.data == 1){
+    oneShot = false; //Unlock Clock
+    }
+
 
   }
   // if (rData.origin == masterserver && rData.sensor == masterserver){
@@ -205,6 +218,7 @@ void statusUpdate(){
   sData.origin = attic_clock;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  Serial.println(result == ESP_OK ? "Status Update Sent" : "Status Update Failed");
 }
 
 
@@ -241,6 +255,13 @@ void setup() {
   pinMode(18,OUTPUT);
   digitalWrite(18,HIGH);
 
+//Set Timeout Occured to 0;
+    sData.origin = attic_clock;
+    sData.sensor = attic_clock;
+    sData.data = 90;
+    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+    
+
   asynctimer.setInterval([]() {statusUpdate();},  1000);
 
 }
@@ -250,7 +271,24 @@ void getReadings() {
   
   sens2 = digitalRead(inPin);
 
-  if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+  if (sensor.timeoutOccurred()) {
+
+    sData.origin = attic_clock;
+    sData.sensor = attic_clock;
+    sData.data = 99;
+    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+    
+    Serial.printf("TIMEOUT Occured\n");
+    //ERROR STATE.  NEED TO RESTART
+   
+    sensor.stopContinuous();
+    Wire.endTransmission();
+    delay(600);
+    sensor.init();
+    sensor.setTimeout(500);
+    sensor.startContinuous();
+    ESP.restart();
+   }
 
   if (sensor.readRangeContinuousMillimeters()<50) {
     sens1 = HIGH;
@@ -268,6 +306,13 @@ void getReadings() {
 
 void printSequence() {
   Serial.printf("Sequence: %d\n", sequence);
+}
+
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+  Serial.println("Disconnected from WiFi access point");
+  Serial.print("WiFi lost connection. Reason: ");
+  Serial.println(info.wifi_sta_disconnected.reason);
+  Serial.println("Trying to Reconnect");
 }
 
 unsigned long ttime = millis();
@@ -308,9 +353,40 @@ void loop() {
   }
   printSequence();
   }
-// WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
-  // delay(250); // changed from original 500;
 
+
+
+
+  if(reverse == true && oneShot == true){
+    //Reset to original position
+    sData.origin = attic_clock;
+    sData.sensor = attic_clock;
+    sData.data = 0;
+    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+    reverseServo();
+    oneShot = false;
+    reverse = false;
+    //Need to update master
+  
+  }
+
+
+  if (WiFi.isConnected() == false){
+  WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  
+  Serial.println("Start Reconnect Process");
+  WiFi.softAPdisconnect();
+  WiFi.disconnect();
+
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+  delay(500);
+  while(!WiFi.isConnected()){
+    Serial.println("Waiting Forever...");
+    delay(200);
+  }
+
+}
 
   asynctimer.handle();
 }

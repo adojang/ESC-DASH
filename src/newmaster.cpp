@@ -91,6 +91,8 @@ unsigned short RFID2_status_timer = 0;
 unsigned short RFID3_status_timer = 0;
 unsigned short RFID4_status_timer = 0;
 unsigned short thumbreader_status_timer = 0;
+unsigned short tomb_status_timer = 0;
+unsigned short tomb_chalice_timer = 0;
 
 
 #pragma region Cards
@@ -109,8 +111,8 @@ Card RFID2_status(&dashboard, STATUS_CARD, "RFID2", "warning");
 Card RFID3_status(&dashboard, STATUS_CARD, "RFID3", "warning");
 Card RFID4_status(&dashboard, STATUS_CARD, "RFID4", "warning");
 Card thumbreader_status(&dashboard, STATUS_CARD, "Thumb Reader", "warning");
-
 Card tomb_status(&dashboard, STATUS_CARD, "Tomb", "warning");
+Card chalice_status(&dashboard, STATUS_CARD, "Chalice", "warning");
 
 
 
@@ -127,8 +129,11 @@ Card lockdoor_status(&dashboard, STATUS_CARD, "Door Status", "success");
 Card DOORTOUCH(&dashboard, STATUS_CARD, "DoorTouch", "idle");
 // Card touchval(&dashboard, GENERIC_CARD, "DoorTouch Analog Read");
 
-Card clock_armed(&dashboard, STATUS_CARD, "Clock Status", "idle");
-Card clock_reset(&dashboard, BUTTON_CARD, "Arm/Disarm Clock");
+// Card clock_armed(&dashboard, STATUS_CARD, "Clock Status", "idle");
+// Card clock_timeout(&dashboard, STATUS_CARD, "Clock Sensor", "success");
+
+// Card clock_reset(&dashboard, BUTTON_CARD, "Arm/Disarm Clock");
+Card reset_clock(&dashboard, BUTTON_CARD, "Reset Clock Position"); //momentary
 
 Card overide_rfid(&dashboard, BUTTON_CARD, "Override All RFID"); //momentary
 Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
@@ -210,6 +215,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 
 
+
   if(rData.origin == train_keypad && rData.sensor == train_keypad){
   keypadtrigger = rData.data;
   }
@@ -282,15 +288,21 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     dashboard.sendUpdates();
   }
 
-  if(rData.origin == attic_clock && rData.sensor == attic_clock && rData.data == 1){
-    //Clock has triggered.
+  // if(rData.origin == attic_clock && rData.sensor == attic_clock){
+  //   //Clock has triggered.
+  //   if(rData.data == 1){
+  //   clock_armed.update("Clock Disabled", "warning");
+  //   clock_reset.update(0);
+  //   dashboard.sendUpdates(); 
+  //   }
+  //   else{
+  //   clock_armed.update("Clock Enable", "success");
+  //   clock_reset.update(1);
+  //   dashboard.sendUpdates(); 
+  //   }
 
-    clock_armed.update("Clock Disabled", "warning");
-    clock_reset.update(0);
-    dashboard.sendUpdates(); 
 
-
-  }
+  // }
 
   /* Status Updates */
   if(rData.origin == atticmaster && rData.sensor == status_alive) handleStatus(attic_status_timer, &attic_status);
@@ -301,7 +313,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if(rData.origin == attic_RFID3 && rData.sensor == status_alive) handleStatus(RFID3_status_timer, &RFID3_status);
   if(rData.origin == attic_RFID4 && rData.sensor == status_alive) handleStatus(RFID4_status_timer, &RFID4_status);
   if(rData.origin == train_thumb && rData.sensor == status_alive) handleStatus(thumbreader_status_timer, &thumbreader_status);
-
+  if(rData.origin == tombmaster && rData.sensor == status_alive) handleStatus(tomb_status_timer, &tomb_status);
+  if(rData.origin == tomb_chalice && rData.sensor == status_alive) handleStatus(tomb_chalice_timer, &chalice_status);
 
 
 
@@ -347,6 +360,7 @@ void configDash(){
   RFID4_status.update("Disconnected", "danger");
   thumbreader_status.update("Disconnected", "danger");
   tomb_status.update("Disconnected", "danger");
+  chalice_status.update("Disconnected", "danger");
 
   /* Attic */
   humanchain_card.setTab(&attic);
@@ -359,8 +373,9 @@ void configDash(){
   overide_rfid.setTab(&attic);
   lockdoor_status.setTab(&attic);
   DOORTOUCH.setTab(&attic);
-  clock_armed.setTab(&attic);
-  clock_reset.setTab(&attic);
+  // clock_armed.setTab(&attic);
+  // clock_reset.setTab(&attic);
+  reset_clock.setTab(&attic);
   // touchval.setTab(&attic);
   attic_rfid1.setTab(&attic);
   attic_rfid2.setTab(&attic);
@@ -522,31 +537,31 @@ if (value == 0) {
   dashboard.sendUpdates();
 });
 
-clock_reset.attachCallback([](int value){
-clock_reset.update(value);
-if (value == 0) {
-  WebSerial.printf("Clock Locked\n");
-  Serial.printf("Clock Locked\n");
-  clock_armed.update("Clock Disabled", "warning");
-  sData.origin = masterserver;
-  sData.sensor = masterserver;
-  sData.data = 0;
-  esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
-  sData.data = 0;
-}
-if (value == 1) {
-  WebSerial.printf("Clock Armed\n");
-  Serial.printf("Clock Armed\n");
-  clock_armed.update("Clock Armed", "success");
-  sData.origin = masterserver;
-  sData.sensor = masterserver;
-  sData.data = 1;
-  esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
-  sData.data = 0;
-  }
+// clock_reset.attachCallback([](int value){
+// clock_reset.update(value);
+// if (value == 0) {
+//   WebSerial.printf("Clock Locked\n");
+//   Serial.printf("Clock Locked\n");
+//   clock_armed.update("Clock Disabled", "warning");
+//   sData.origin = masterserver;
+//   sData.sensor = masterserver;
+//   sData.data = 0;
+//   esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
+//   sData.data = 0;
+// }
+// if (value == 1) {
+//   WebSerial.printf("Clock Armed\n");
+//   Serial.printf("Clock Armed\n");
+//   clock_armed.update("Clock Armed", "success");
+//   sData.origin = masterserver;
+//   sData.sensor = masterserver;
+//   sData.data = 1;
+//   esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
+//   sData.data = 0;
+//   }
 
-  dashboard.sendUpdates();
-});
+//   dashboard.sendUpdates();
+// });
 
 
 overide_rfid.attachCallback([](int value){
@@ -559,6 +574,22 @@ sData.origin = masterserver;
 sData.sensor = masterserver; 
 sData.data = 50;
 esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+sData.data = 0;
+  
+dashboard.sendUpdates();
+
+
+});
+
+reset_clock.attachCallback([](int value){
+buttonTimeout(&reset_clock);
+Serial.printf("Clock Returned to Starting Position\n");
+WebSerial.printf("Clock Returned to Starting Position\n");
+
+sData.origin = masterserver;
+sData.sensor = masterserver; 
+sData.data = 55;
+esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
 sData.data = 0;
   
 dashboard.sendUpdates();
@@ -633,8 +664,9 @@ sData.data = 0;
 
   //Initialize Statues'
   lockdoor_status.update("Door Unlocked", "success");
-  clock_armed.update("ARMED", "success");
-  clock_reset.update(1);
+  // clock_armed.update("ARMED", "success");
+  // clock_timeout.update("Working", "success");
+  // clock_reset.update(1);
   attic_rfid1.update("None", "warning");
   attic_rfid2.update("None", "warning");
   attic_rfid3.update("None", "warning");
@@ -680,6 +712,7 @@ void setup() {
   registermac(m_RFID2);
   registermac(m_RFID3);
   registermac(m_RFID4);
+  registermac(m_tomb_chalice);
   configDash();
   startButtonCB();
   

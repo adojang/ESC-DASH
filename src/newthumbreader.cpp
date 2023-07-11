@@ -76,7 +76,9 @@ dataPacket rData; // data to recieve
 unsigned long ttime = millis();
 // Thumb Variables
 float OPENVALUE = 30;
-float tuneconstant = 0.75; // Value to start with. Callibration should sort this out.
+float tuneconstant = 0.84; // Value to start with. Callibration should sort this out.
+
+//0.75 only had 3 errors during a hole day, increasing it to 0.84
 float samples1[50];
 float averages[10] = {40,40,40,40,40,40,40,40,40,40};
 int val = 0;

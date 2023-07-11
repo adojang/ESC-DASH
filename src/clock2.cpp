@@ -64,96 +64,12 @@ uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 /* ESP Async Timer */
 AsyncTimer asynctimer(35);
 
-/* WiFi Credentials */
-const char* ssid = WIFI_SSID; // SSID
-const char* password = WIFI_PASS; // Password
 
-/* ESP-NOW Structures */
- dataPacket sData; // data to send
- dataPacket rData; // data to recieve
-
-/* Setup */
-AsyncWebServer server(80);
-esp_now_peer_info_t peerInfo;
-
-
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
-}
-
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&rData, incomingData, sizeof(rData));
-}
-
-void startwifi(){
-
-  // Set device as a Wi-Fi Station
-  WiFi.softAP(NAME, "pinecones", 0, 1, 4);
-  WiFi.mode(WIFI_AP_STA);
-  esp_wifi_set_mac(WIFI_IF_STA, &setMACAddress[0]);
-  unsigned long wifitimeout = millis();
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
-    Serial.print(".");
-    if ((millis() - wifitimeout) > 10000) ESP.restart();
-  }
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.printf("WiFi Failed!\n");
-      return;
-  }
-  else{
-    Serial.println("WIFI CONNECTED!");
-  }
-
-   /* MDNS */
-  if (!MDNS.begin(NAME)) {
-        Serial.println("Error setting up MDNS responder!");
-        while(1) {
-            delay(1000);
-        }
-    }
-  Serial.println("mDNS responder started");
-  Serial.printf("*** PROGRAM START ***\n\n");
-  
-  AsyncElegantOTA.begin(&server, "admin", "admin1234");
-
-  server.begin();
-  MDNS.addService("http", "tcp", 80);
-
-}
-
-void startespnow(){
-  // Init ESP-NOW
-  if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
-    return;
-  }
-
-  //Register Callback Functions
-  esp_now_register_send_cb(OnDataSent);
-  esp_now_register_recv_cb(OnDataRecv);
-
-  // Register peer
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 0;  
-  peerInfo.encrypt = false;
-  
-  // Add peer        
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
-    Serial.println("Failed to add peer");
-    return;
-  }
-
-
-}
 
 
 
 void setup() {
   Serial.begin(115200);
-  startwifi();
-  startespnow();
 
   Wire.begin();
   sensor.init();
@@ -168,7 +84,18 @@ void setup() {
 void loop()
 {
   // Serial.print(sensor.readRangeContinuousMillimeters());
-  if (sensor.timeoutOccurred()) { Serial.print(" TIMEOUT"); }
+  if (sensor.timeoutOccurred()) {
+    Serial.printf("TIMEOUT Occured\n");
+    //ERROR STATE.  NEED TO RESTART
+   
+    sensor.stopContinuous();
+    Wire.endTransmission();
+    delay(600);
+    sensor.init();
+    sensor.setTimeout(500);
+    sensor.startContinuous();
+    ESP.restart();
+   }
 
   // Serial.println();
 
