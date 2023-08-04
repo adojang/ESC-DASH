@@ -91,6 +91,7 @@ bool RFID4_status = false;
 
 //WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
 
+bool RecvShot = false;
 
 bool doortimeoutflag = false;
 unsigned long doortimeout = 0;
@@ -150,6 +151,12 @@ void triggerDoor(int pin){
   Serial.println("Door Opened");
   emergencyTrigger = millis(); // to prevent unwanted emf from accidently triggering.
 
+  //Send a message to restart clock sensors to prevent weird transient voltage timeout issue.
+  sData.origin = atticmaster;
+  sData.sensor = atticmaster;
+  sData.data = 44;
+  esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
+
   asynctimer.setTimeout([pin]() {
       digitalWrite(pin, LOW);
       Serial.println("Door Closed");
@@ -168,7 +175,17 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) 
 {
   memcpy(&rData, incomingData, sizeof(rData));
-  
+
+    if(rData.origin == attic_clock && rData.sensor == attic_clock){
+
+      if(rData.data == 1) RecvShot = true;
+      if(rData.data == 0) RecvShot = false;
+
+      WebSerial.println("Recieved Oneshot");
+      WebSerial.println(RecvShot);
+
+    }
+
     if(rData.origin == masterserver && rData.sensor == masterserver && rData.data == 50){
       //Override RFID
 
@@ -337,6 +354,7 @@ void setup() {
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
+  registermac(m_clock);
   registermac(m_RFID1);
   registermac(m_RFID2);
   registermac(m_RFID3);
@@ -388,6 +406,19 @@ void setup() {
 
 asynctimer.setInterval([]() {getTouch();},  250);
 
+//Store and Send value of oneshot for Clock Here
+
+asynctimer.setInterval([]() {
+  
+  sData.origin = atticmaster;
+  sData.sensor = attic_clock;
+
+  if (RecvShot == true) rData.data = 1;
+  if(RecvShot == false) rData.data = 0;
+  esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
+  
+  },  1200);
+
 
 asynctimer.setInterval([]() {statusUpdate();},  1000);
 
@@ -420,16 +451,25 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
   Serial.println("Trying to Reconnect");
 }
 
-int debounce(){
+
+int digitalDebounce(int pin){
   int value = 0;
-  for (int i = 0; i < 10; i++){
-    if (digitalRead(23) == 1) value++;
-    delay(5);
+  if (digitalRead(pin)){
+    for (int i = 0; i < 10; i++){
+      if (digitalRead(pin) == 1) value++;
+      delay(5);
+    }
   }
 
   if( value > 8) return 1; // 80% sure it was a button press
-  else return 0;
-  
+    else { // 8 or less
+          if (value == 0) return 0; // 0
+            else{ // 8 or less
+            Serial.println("Emergency Button was true, but debounce was false");
+            WebSerial.println("Emergency Button was true, but debounce was false");
+            return 0;
+          }
+    }
 }
 
 void loop() {
@@ -501,9 +541,8 @@ if ((millis() - touchtriggertimeout > 2000) && (DOORTOUCH == true) && (RFID1_sta
 
 
 //Emergency Escape Button
-if (digitalRead(23) && (millis() - emergencyTrigger) >= 3000)
+if (digitalDebounce(23) && (millis() - emergencyTrigger) >= 3000)
   {
-    if(debounce()){
     emergencyTrigger = millis();
     WebSerial.println("Millis:");
     WebSerial.println(millis());
@@ -513,11 +552,9 @@ if (digitalRead(23) && (millis() - emergencyTrigger) >= 3000)
     WebSerial.println("Emergency Button Pushed");
     triggerDoor(5);
     emergencyTrigger = millis(); // Weird relay back emf workaround
-    } else{
-      WebSerial.println("Emergency Button was true, but debounce was false");
     }
     
-  }
+  
 
 
 

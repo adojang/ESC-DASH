@@ -26,9 +26,13 @@
 #include <EscCore.h>
 #include <Wire.h>
 #include <VL53L0X.h>
-
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
+#include <EEPROM.h>
 #define NAME "clock"
 #define setMACAddress m_clock
+
+//Watchdog Woof Woof
+#define WDT_TIMEOUT 15 // 5 seconds
 
 #pragma region mac
 // Control
@@ -64,7 +68,7 @@ uint8_t m_train_thumb[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC1};
 uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
 #pragma endregion mac
 
-AsyncTimer asynctimer;
+// AsyncTimer asynctimer;
 AsyncWebServer server(80);
 ESPDash dashboard(&server,false);
 esp_now_peer_info_t peerInfo;
@@ -80,13 +84,17 @@ const int inPin = 15;
 int servoPin = 13;
 
 bool oneShot = false;
+bool readOneShot = true;
+bool RecvShot = false;
 bool reverse = false;
 int sens1 = 0; 
 int sens2 = 0; 
 int sequence = 0;
 unsigned long t = 0;
 int servoPos = 0;
-
+bool resetall = false;
+uint16_t sensorData = 0;
+int resetPin = 13;
 const int PWM_pin1 = 4; // PWM Pin
 const int PWM_pin2 = 5; // PWM Pin
 unsigned long stoptimer = millis();
@@ -100,6 +108,7 @@ void activateServo(){
   ledcWrite(0, 200);
   ledcWrite(1, 0);
   delay(11300);
+  esp_task_wdt_reset();
 
   ledcWrite(0, 0);
   ledcWrite(1, 0);
@@ -111,6 +120,7 @@ void reverseServo(){
   ledcWrite(0, 0);
   ledcWrite(1, 200);
   delay(7700);
+  esp_task_wdt_reset();
 
   ledcWrite(0, 0);
   ledcWrite(1, 0);
@@ -124,6 +134,16 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
+    if(rData.origin == atticmaster && rData.data == 44){
+
+
+      resetall = true;
+
+
+
+
+
+    }
 
     if(rData.origin == masterserver && rData.data == 55){
       reverse = true;
@@ -131,6 +151,13 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     //will not actually reverse unless clock is
   }
 
+
+  // if(rData.origin == atticmaster && rData.sensor == attic_clock){
+  //   if (rData.data == 1) RecvShot = true;
+  //   if(rData.data == 0) RecvShot = false;
+
+  //   Serial.println("Data Recv from AtticMaster");
+  // }
 
   if(rData.origin == masterserver && rData.data == 10){
   ledcWrite(0, 200);
@@ -175,15 +202,15 @@ int speeddata = rData.data*4.25;
 }
 
 
-  if(rData.origin == masterserver && rData.sensor == masterserver){
+  // if(rData.origin == masterserver && rData.sensor == masterserver){
 
-    if(rData.data == 0) oneShot = true; //Lock Clock
-    if(rData.data == 1){
-    oneShot = false; //Unlock Clock
-    }
+  //   if(rData.data == 0) oneShot = true; //Lock Clock
+  //   if(rData.data == 1){
+  //   oneShot = false; //Unlock Clock
+  //   }
 
 
-  }
+  // }
   // if (rData.origin == masterserver && rData.sensor == masterserver){
   //   if(rData.data == 1) {activateServo();} // Manually Trigger Clock Servo
 
@@ -219,11 +246,25 @@ void statusUpdate(){
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
   Serial.println(result == ESP_OK ? "Status Update Sent" : "Status Update Failed");
+
+  //Send the status of oneshot:
+
+
+
 }
 
 
 void setup() {
   Serial.begin(115200);
+  EEPROM.begin(24);
+
+  bool temp = EEPROM.read(0);
+  Serial.println(temp);
+  oneShot = temp;
+  Serial.println(oneShot);
+  Serial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
 
   //This needs to start first to prevent motor drift
   pinMode(PWM_pin1, OUTPUT);
@@ -235,6 +276,11 @@ void setup() {
   ledcWrite(0, 0);
   ledcWrite(1, 0);
 
+  pinMode(23,OUTPUT);
+  digitalWrite(23,LOW);
+
+  pinMode(resetPin, OUTPUT);
+  pinMode(resetPin, HIGH);
 
   Core.startup(setMACAddress, NAME, server);
   startespnow();
@@ -248,7 +294,7 @@ void setup() {
 
   Wire.begin();
   sensor.init();
-  sensor.setTimeout(500);
+  sensor.setTimeout(0);
   sensor.startContinuous();
 
   pinMode(inPin, INPUT_PULLDOWN);
@@ -262,40 +308,55 @@ void setup() {
     esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
     
 
-  asynctimer.setInterval([]() {statusUpdate();},  1000);
+  // asynctimer.setInterval([]() {statusUpdate();},  1000);
 
 }
 
+void sensorReset(){
+  //End Everything.
+  sensor.stopContinuous();
+  Wire.endTransmission();
+
+    Serial.println("Sensor Reset!");
+    digitalWrite(resetPin, LOW);
+    delay(1000);
+    digitalWrite(resetPin, HIGH);
+    delay(1000);
+    //Init Sensor Again
+    if (!sensor.init()) {
+    Serial.println("Failed To Detect Sensor.. Restarting!!");
+    ESP.restart();
+  }
+
+    sensor.setTimeout(500); // https://forum.pololu.com/t/vlx53l0x-timeout-issues/18553/15
+    sensor.startContinuous();
+}
 
 void getReadings() {
-  
+  static uint8_t counter = 0;
   sens2 = digitalRead(inPin);
+  sensorData = sensor.readRangeContinuousMillimeters();
+  esp_task_wdt_reset(); // update the watchdoggie.
+  Serial.println(sensorData);
 
-  if (sensor.timeoutOccurred()) {
-
-    sData.origin = attic_clock;
-    sData.sensor = attic_clock;
-    sData.data = 99;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
-    
-    Serial.printf("TIMEOUT Occured\n");
-    //ERROR STATE.  NEED TO RESTART
-   
-    sensor.stopContinuous();
-    Wire.endTransmission();
-    delay(600);
-    sensor.init();
-    sensor.setTimeout(500);
-    sensor.startContinuous();
-    ESP.restart();
-   }
-
-  if (sensor.readRangeContinuousMillimeters()<50) {
+  if (sensorData < 100) {
     sens1 = HIGH;
   }
   else {
     sens1 = LOW;
   }
+
+  if(sensorData > 9000){
+    
+      counter++;
+      }
+
+    if(counter >= 10){
+    Serial.println("RESET!");
+    sensorReset();
+    counter = 0;
+  }
+
 
   Serial.printf("sensor 1: %d\n", sens1);
 
@@ -316,36 +377,51 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 }
 
 unsigned long ttime = millis();
+unsigned long gtime = millis();
+  //Sense1 is where the hole will be.
+  //Sense2 is where the hole is covered.
+
 void loop() {
 
-  
+  if(millis()-gtime > 1000){
+    gtime = millis();
+    statusUpdate();
+    Serial.println("Post Status Update");
+  }
+
+
   if((millis() - stoptimer > 250) && (sequence == 0)){
     ledcWrite(0, 0);
     ledcWrite(1, 0);
     stoptimer = millis();
 }
 
+
+  //ReadSensor and Handle Timeouts and check the Sequence and Trigger the Motor.
   if (millis() - ttime > 500){
     ttime = millis();
   
   getReadings();
-  // printSequence();
 
-  //Sense1 is where the hole will be.
-  //Sense2 is where the hole is covered.
 
   if ((sequence==0) && (sens1==HIGH) && (sens2==HIGH)){ // both are initially open.
     sequence=1;
   }
   
   if ((sequence==1) && (sens1==LOW) && (sens2==HIGH) && (oneShot == false)) { // correct holes covered, trigger
-    
+    oneShot = true;
+    EEPROM.write(0, true);
+    EEPROM.commit();
+    Serial.println(EEPROM.read(0));
     sData.origin = attic_clock;
     sData.sensor = attic_clock;
-    sData.data = 1;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+    if (oneShot == true) sData.data = 1;
+    if (oneShot == false) sData.data = 0;
+    esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+    Serial.println("Send Oneshot");
+    Serial.println(oneShot);
     activateServo();
-    oneShot = true;
+    
     sequence=0;
   } 
   else if ((sequence==1) && (sens1==LOW) && (sens2==LOW)) { // both are covered
@@ -356,22 +432,38 @@ void loop() {
 
 
 
-
-  if(reverse == true && oneShot == true){
-    //Reset to original position
-    sData.origin = attic_clock;
-    sData.sensor = attic_clock;
-    sData.data = 0;
-    esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
-    reverseServo();
+  //Motor Reverse Code that is called through the masterserver.
+  if(reverse == true){
+    EEPROM.write(0, false);
+    EEPROM.commit();
+    
     oneShot = false;
     reverse = false;
+    // sData.origin = attic_clock;
+    // sData.sensor = attic_clock;
+    // if (oneShot == true) sData.data = 1;
+    // if (oneShot == false) sData.data = 0;
+    // esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+    // Serial.println("Send Oneshot");
+    // Serial.println(oneShot);
+    //Reset to original position
+    reverseServo();
+
     //Need to update master
   
   }
 
+//Execute one on Boot after a msg has been recieved.
+  // if (readOneShot && (millis() - gtime > 4000)){
+  //   Serial.println("Read OneShot");
+  //   Serial.println(RecvShot);
+  //   oneShot = RecvShot;
+  //   readOneShot = false;
+  // }
 
+  //Wifi Reconnecting Code
   if (WiFi.isConnected() == false){
+  Serial.println("Process Wifi Start");
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   
   Serial.println("Start Reconnect Process");
@@ -382,11 +474,11 @@ void loop() {
 
   delay(500);
   while(!WiFi.isConnected()){
-    Serial.println("Waiting Forever...");
+    Serial.println("Waiting...");
     delay(200);
   }
-
 }
 
-  asynctimer.handle();
+
+  // asynctimer.handle();
 }

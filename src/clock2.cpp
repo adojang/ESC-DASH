@@ -54,60 +54,104 @@ VL53L0X sensor;
 
 const int outPin = 15;
 int covered = 0;
+int resetPin = 13;
+int countergreat = 0;
+uint16_t sensorData = 0;
 
 // REPLACE WITH THE MAC Address of your receiver 
 uint8_t broadcastAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00}; // Address of Master Server
 uint8_t setMACAddress[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, MACAD};
 
-
-
 /* ESP Async Timer */
 AsyncTimer asynctimer(35);
-
-
-
-
 
 void setup() {
   Serial.begin(115200);
 
   Wire.begin();
   sensor.init();
-  sensor.setTimeout(500);
-
-  pinMode(outPin, OUTPUT);
-
-
+  sensor.setTimeout(500); // https://forum.pololu.com/t/vlx53l0x-timeout-issues/18553/15
   sensor.startContinuous();
+  
+  pinMode(outPin, OUTPUT);
+  pinMode(resetPin, OUTPUT);
+  digitalWrite(resetPin,HIGH);
+
+  
   }
 
-void loop()
-{
-  // Serial.print(sensor.readRangeContinuousMillimeters());
-  if (sensor.timeoutOccurred()) {
-    Serial.printf("TIMEOUT Occured\n");
-    //ERROR STATE.  NEED TO RESTART
-   
-    sensor.stopContinuous();
-    Wire.endTransmission();
-    delay(600);
-    sensor.init();
-    sensor.setTimeout(500);
-    sensor.startContinuous();
+unsigned long ttime = millis();
+unsigned long hreset = millis();
+
+void sensorReset(){
+  //End Everything.
+  sensor.stopContinuous();
+  Wire.endTransmission();
+
+
+    digitalWrite(resetPin, LOW);
+    delay(1000);
+    digitalWrite(resetPin, HIGH);
+    delay(1000);
+    //Init Sensor Again
+    if (!sensor.init()) {
+    Serial.println("Failed To Detect Sensor.. Restarting!!");
     ESP.restart();
-   }
+  }
 
-  // Serial.println();
+    sensor.setTimeout(500); // https://forum.pololu.com/t/vlx53l0x-timeout-issues/18553/15
+    sensor.startContinuous();
+}
 
-  if (sensor.readRangeContinuousMillimeters()<100) {
+void getSensorData(){
+  static uint8_t counter = 0;
+
+  sensorData = sensor.readRangeContinuousMillimeters();
+  Serial.println(sensorData);
+
+  if (sensorData < 100) {
     Serial.println("Covered");
-    covered = HIGH;
     digitalWrite(outPin, HIGH);
   }
   else {
+    //The Actual Value, see if its that massive error one.
+    Serial.println(sensor.readRangeContinuousMillimeters());
     Serial.println("Uncovered");
-    covered = LOW;
+      if(sensorData > 9000){
+        counter++;
+      }
     digitalWrite(outPin, LOW);
   }
-  delay(250);
+
+  if(counter >= 10){
+    Serial.println("RESET!");
+    sensorReset();
+    counter = 0;
+  }
+
+
+}
+
+void loop()
+{
+//Option 1:
+
+   if (millis() - ttime > 500){
+    ttime = millis();
+    getSensorData(); // Has Builtin Error detection.
+}
+
+
+  //Option 2:
+
+  //Hardware Reset the sensor every 1 min. If this runs, I'll probably just leave it.
+  // if(millis() - hreset > 60000){
+  //   //Hardware Reset the Sensor
+  //     hreset = millis();
+  //     sensorReset();
+  // }
+
+
+ 
+
 }

@@ -307,6 +307,26 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
   Serial.println("Trying to Reconnect");
 }
 
+int digitalDebounce(int pin){
+  int value = 0;
+  if (digitalRead(pin)){
+    for (int i = 0; i < 10; i++){
+      if (digitalRead(pin) == 1) value++;
+      delay(5);
+    }
+  }
+
+  if( value > 8) return 1; // 80% sure it was a button press
+    else { // 8 or less
+          if (value == 0) return 0; // 0
+            else{ // 8 or less
+            Serial.println("Emergency Button was true, but debounce was false");
+            WebSerial.println("Emergency Button was true, but debounce was false");
+            return 0;
+          }
+    }
+}
+
 void loop() {
 
 
@@ -345,23 +365,23 @@ if (millis() - ttime > 2000){ //Use this to print data regularly
 
 
 //Emergency Escape Button OUT
-if ((digitalRead(23)) && (millis() - emergencyTrigger) >= 3000)
+if ((digitalDebounce(23)) && (millis() - emergencyTrigger) >= 3000)
   {
     emergencyTrigger = millis();
     emergencyFlag = 0;
-    Serial.println("Emergency Button Pushed");
-    WebSerial.println("Emergency Button Pushed");
+    Serial.println("Emergency Button Pushed Entrance");
+    WebSerial.println("Emergency Button Pushed Entrance");
     triggerDoor(5);
     emergencyTrigger = millis(); // Weird relay back emf workaround
   }
 
   //Emergency Escape Button IN
-  if ((digitalRead(13)) && (millis() - emergencyTrigger) >= 3000)
+  if ((digitalDebounce(13)) && (millis() - emergencyTrigger) >= 3000)
   {
     emergencyTrigger = millis();
     emergencyFlag = 0;
-    Serial.println("Emergency Button Pushed");
-    WebSerial.println("Emergency Button Pushed");
+    Serial.println("Emergency Button Pushed Sliding Door");
+    WebSerial.println("Emergency Button Pushed Sliding Door");
     triggerDoor(18);
     emergencyTrigger = millis(); // Weird relay back emf workaround
   }
