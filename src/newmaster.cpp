@@ -781,14 +781,14 @@ if (keypadtrigger == 1) // Unlock the Door Steady State
   {
   WebSerial.println("Keypad Unlocked");
   keypadtrigger = 0;
-  digitalWrite(5, LOW);
+  digitalWrite(5, HIGH);
 }
 
 if (keypadtrigger == 2) // Lock the Door Steady State
   {
   WebSerial.println("Keypad Locked");
   keypadtrigger = 0;
-  digitalWrite(5, HIGH);
+  digitalWrite(5, LOW);
 }
 
 
