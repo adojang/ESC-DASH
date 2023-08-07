@@ -24,6 +24,8 @@
 */
 
 #include <EscCore.h>
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery if it get stuck
+
 
 /* RFID */
 #include <SPI.h>
@@ -31,7 +33,7 @@
 
 #define NAME "chalice"
 #define setMACAddress m_tomb_chalice
-
+#define WDT_TIMEOUT 6 // 5 seconds
 #pragma region mac
 // Control
 uint8_t m_masterserver[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00};
@@ -149,6 +151,7 @@ void statusUpdate(){
   sData.origin = tomb_chalice;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_task_wdt_reset();
 }
 
 
@@ -156,6 +159,9 @@ void setup() {
   Serial.begin(115200);
   pinMode(SS_1_PIN, PULLUP);
   pinMode(2,OUTPUT);
+  pinMode(RST_PIN,OUTPUT);
+  pinMode(RST_PIN,HIGH); // HIGH is enabled
+  //If this doesn't work, reset the RFID every 20sec ...
   digitalWrite(2,LOW);
 
   Core.startup(setMACAddress, NAME, server);
@@ -163,6 +169,12 @@ void setup() {
 
   registermac(m_masterserver);
   registermac(m_tombmaster);
+  
+  Serial.println("Configuring WDT...");
+  WebSerial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
+  
   digitalWrite(2,HIGH);
 
   sData.origin = tomb_chalice;
@@ -202,9 +214,12 @@ unsigned long gtimer = millis();
 
 void loop() {
 
-  if(millis() - gtimer > 2000){
-    Serial.println("g");
+  if(millis() - gtimer > 15000){
+    Serial.println("Alive...");
+    WebSerial.println("TEMP Solution: Restarting the ESP to prevent the RFID from dying after maglock triggers.");
     gtimer = millis();
+    delay(2000);
+    ESP.restart();
   }
 
   if (millis() - ttimer > 15){

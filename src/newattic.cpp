@@ -176,6 +176,20 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 {
   memcpy(&rData, incomingData, sizeof(rData));
 
+
+    if(rData.origin == masterserver && rData.sensor == attic_bike){
+      
+      if(rData.data == 1){ ledcWrite(1, (4000));
+      digitalWrite(2,HIGH);
+      }
+      if(rData.data == 0) {
+        digitalWrite(2,LOW);
+        ledcWrite(1, (0));
+      }
+    }
+
+
+
     if(rData.origin == attic_clock && rData.sensor == attic_clock){
 
       if(rData.data == 1) RecvShot = true;
@@ -305,11 +319,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
       emergencyTrigger = millis();
     }
 
-    if (rData.origin == masterserver && rData.sensor == attic_bike){
-    if (rData.data == 1) ledcWrite(1, (4000));
-
-    if(rData.data == 0) ledcWrite(1, (4000));
-}
 
     if(rData.origin == attic_bike && rData.sensor == attic_bike)
     {

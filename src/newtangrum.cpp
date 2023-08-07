@@ -310,15 +310,26 @@ void setup() {
 
 
 unsigned long ttimer = millis();
-
+bool oneshotEnable = true;
 void loop() {
 
-if (totalc == 13){
-  Serial.printf("Puzzle Complete!\n");
-  WebSerial.printf("Puzzle Complete!\n");
+
+if (totalc == 13 && millis() - ttimer > 2000 && oneshotEnable == true){
+  ttimer = millis();
+  Serial.printf("Puzzle Complete! 13/13\n");
+  WebSerial.printf("Puzzle Complete! 13/13\n");
   sendData();
+  oneshotEnable = false;
+
+  //I need to use a oneshot flag here to prevent it from triggering 10000000 in a row. Poor relay :(
 }
 
+if(totalc < 13){
+  oneshotEnable = true; // This prevents tomb from triggering multiple times. Oneshots only.
+  //To trigger repeatedly, a piece has to be removed and replaced. Must read at least 12 or less for totalc :)
+}
+
+//Readpin has a small delay which regulates this loop.
 totalc = 0;
 readPin(17);
 readPin(18);
@@ -333,7 +344,8 @@ readPin(32);
 readPin(33);
 readPin(34);
 readPin(35);
-Serial.println(totalc);
+WebSerial.printf("Puzzle Pieces: %d/13\n", totalc);
+Serial.printf("Puzzle Pieces: %d/13\n", totalc);
 
 
   

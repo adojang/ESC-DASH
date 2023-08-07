@@ -24,9 +24,11 @@
 */
 
 #include <EscCore.h>
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery if it get stuck
 
 #define NAME "tombmaster"
 #define setMACAddress m_tombmaster
+#define WDT_TIMEOUT 6 // 5 seconds
 
 #pragma region mac
 // Control
@@ -145,12 +147,12 @@ if (readingcounter >= 100) {
 }
 
 void triggerDoor(int pin){
-  digitalWrite(pin, LOW);
+  digitalWrite(pin, HIGH);
   Serial.println("Door Opened");
   emergencyTrigger = millis(); // to prevent unwanted emf from accidently triggering.
 
   asynctimer.setTimeout([pin]() {
-      digitalWrite(pin, HIGH);
+      digitalWrite(pin, LOW);
       Serial.println("Door Closed");
       emergencyTrigger = millis(); // to prevent unwanted emf from accidently triggering.
     }, 3000);
@@ -173,6 +175,15 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
     emergencyTrigger = millis(); // Weird relay back emf workaround
     }
 
+        if (rData.origin == masterserver && rData.sensor == tomb_chalice && rData.data == 1){
+    emergencyTrigger = millis();
+    emergencyFlag = 0;
+    Serial.println("Sliding Door Override");
+    WebSerial.println("Sliding Door Override");
+    triggerDoor(18);
+    emergencyTrigger = millis(); // Weird relay back emf workaround
+    }
+
     if ((rData.origin == masterserver) && (rData.data == 66))
     { // Restart Tomb and RFIDs
 
@@ -180,11 +191,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
         ESP.restart();
     }
     
-    if (rData.origin == masterserver && rData.sensor == tomb_maindoorOverride && rData.data){
+    if (rData.origin == masterserver && rData.sensor == masterserver && rData.data == 111){
       emergencyTrigger = millis();
       triggerDoor(5);
-      Serial.println("Master Server Override");
-      WebSerial.println("Master Server Override");
+      Serial.println("Master Server Main Door Override");
+      WebSerial.println("Master Server Main Door Override");
       emergencyTrigger = millis();
     }
 
@@ -195,6 +206,23 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
       WebSerial.println("Master Server Override");
       emergencyTrigger = millis();
     }
+
+    if (rData.origin == masterserver && rData.sensor == tomb_tangrum && rData.data && rData.data == 1){
+      emergencyTrigger = millis();
+      triggerDoor(19);
+      Serial.println("Master Server Tomb Override");
+      WebSerial.println("Master Server Tomb Override");
+      emergencyTrigger = millis();
+    }
+
+      if (rData.origin == tomb_tangrum && rData.sensor == tomb_tangrum && rData.data && rData.data == 1){
+      emergencyTrigger = millis();
+      triggerDoor(19);
+      Serial.println("Tangrum Puzzle Triggered, Open Tomb");
+      WebSerial.println("Tangrum Puzzle Triggered, Open Tomb");
+      emergencyTrigger = millis();
+    }
+
 
     // Forward Data from Sensors to Master Server
     if (rData.origin != masterserver){
@@ -232,6 +260,7 @@ void statusUpdate(){
   sData.origin = tombmaster;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_task_wdt_reset();
 }
 
 void setup() {
@@ -243,6 +272,10 @@ void setup() {
   registermac(m_tomb_chalice);
   registermac(m_tomb_sennet);
   registermac(m_tomb_tangrum);
+
+  Serial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
 
   #pragma region gpio
   
@@ -265,13 +298,13 @@ void setup() {
   pinMode(21, OUTPUT);
   
   //Startup Sequence
-  digitalWrite(5, HIGH);
+  digitalWrite(5, LOW);
   delay(250);
-  digitalWrite(18, HIGH);
+  digitalWrite(18, LOW);
   delay(250);
-  digitalWrite(19, HIGH);
+  digitalWrite(19, LOW);
   delay(250);
-  digitalWrite(21, HIGH);
+  digitalWrite(21, LOW);
   #pragma endregion gpio
 
 

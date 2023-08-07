@@ -93,6 +93,7 @@ unsigned short RFID4_status_timer = 0;
 unsigned short thumbreader_status_timer = 0;
 unsigned short tomb_status_timer = 0;
 unsigned short tomb_chalice_timer = 0;
+unsigned short tomb_tangrum_timer = 0;
 
 
 #pragma region Cards
@@ -111,8 +112,9 @@ Card RFID2_status(&dashboard, STATUS_CARD, "RFID2", "warning");
 Card RFID3_status(&dashboard, STATUS_CARD, "RFID3", "warning");
 Card RFID4_status(&dashboard, STATUS_CARD, "RFID4", "warning");
 Card thumbreader_status(&dashboard, STATUS_CARD, "Thumb Reader", "warning");
-Card tomb_status(&dashboard, STATUS_CARD, "Tomb", "warning");
+Card tomb_status(&dashboard, STATUS_CARD, "Spooky Tomb", "warning");
 Card chalice_status(&dashboard, STATUS_CARD, "Chalice", "warning");
+Card tangrum_status(&dashboard, STATUS_CARD, "Tangrum Puzzle", "warning");
 
 
 
@@ -140,13 +142,13 @@ Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
 Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
 Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
 Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4 Status", "idle");
-
+Card attic_bikelight(&dashboard, BUTTON_CARD, "Bike Light");
 
 /* Ancient Tomb */
-Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
+Card maindoor_override(&dashboard, BUTTON_CARD, "Open Main Door"); //momentary
 Card chalice_card(&dashboard, BUTTON_CARD, "Open Chalice Door"); //momentary
-Card ringreader_card(&dashboard, BUTTON_CARD, "Override Ring Reader"); //momentary
 Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Open Tomb"); //momentary
+Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
 
 /* All Aboard (Train) */
 Card trainroomdoor_card(&dashboard, BUTTON_CARD, "Open Train Room Door"); //momentary
@@ -315,6 +317,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if(rData.origin == train_thumb && rData.sensor == status_alive) handleStatus(thumbreader_status_timer, &thumbreader_status);
   if(rData.origin == tombmaster && rData.sensor == status_alive) handleStatus(tomb_status_timer, &tomb_status);
   if(rData.origin == tomb_chalice && rData.sensor == status_alive) handleStatus(tomb_chalice_timer, &chalice_status);
+  if(rData.origin == tomb_tangrum && rData.sensor == status_alive) handleStatus(tomb_tangrum_timer, &tangrum_status);
 
 
 
@@ -361,6 +364,7 @@ void configDash(){
   thumbreader_status.update("Disconnected", "danger");
   tomb_status.update("Disconnected", "danger");
   chalice_status.update("Disconnected", "danger");
+  tangrum_status.update("Disconnected", "danger");
 
   /* Attic */
   humanchain_card.setTab(&attic);
@@ -386,12 +390,12 @@ void configDash(){
   /* Tomb */
   sennet_card.setTab(&tomb);
   chalice_card.setTab(&tomb);
-  ringreader_card.setTab(&tomb);
+  maindoor_override.setTab(&tomb);
   tangrumtomb_card.setTab(&tomb);
   sennet_card.setSize(6,6,6,6,6,6);
   chalice_card.setSize(6,6,6,6,6,6);
   tangrumtomb_card.setSize(6,6,6,6,6,6);
-  ringreader_card.setSize(6,6,6,6,6,6);
+  maindoor_override.setSize(6,6,6,6,6,6);
   
   /* Train */
   thumbreader_card.setTab(&train);
@@ -611,6 +615,32 @@ sData.data = 0;
   
 });
 
+humanchain_card.attachCallback([](int value){
+// humanchain_card.update(1);
+buttonTimeout(&humanchain_card);
+Serial.printf("Attic Door Opened\n");
+WebSerial.printf("Attic Door Opened\n");
+sData.sensor = attic_humanchain; 
+sData.data = 1;
+esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
+sData.data = 0;
+  
+});
+
+
+attic_bikelight.attachCallback([&](int value){
+  Serial.println("BikeLight "+String((value == 1)?"true":"false"));
+  attic_bikelight.update(value);
+sData.origin = masterserver;
+sData.sensor = attic_bike;
+sData.data = value;
+esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
+sData.data = 0;
+
+  dashboard.sendUpdates();
+});
 
 /* Tomb */
 
@@ -630,21 +660,23 @@ sData.data = 0;
 chalice_card.attachCallback([](int value){
 buttonTimeout(&chalice_card);
 Serial.printf("Chalice Sensor Triggered\n");
+sData.origin = masterserver;
 sData.sensor = tomb_chalice; 
 sData.data = 1;
-esp_err_t result = esp_now_send(m_tomb_chalice, (uint8_t *) &sData, sizeof(sData));
+esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
 sData.data = 0;
 
 });
 
 /* 0xB2 - ringreader */
-ringreader_card.attachCallback([](int value){
-buttonTimeout(&ringreader_card);
+maindoor_override.attachCallback([](int value){
+buttonTimeout(&maindoor_override);
 Serial.printf("Ring Reader Triggered\n");
-sData.sensor = tomb_ringReader; 
-sData.data = 1;
-esp_err_t result = esp_now_send(m_tomb_ringReader, (uint8_t *) &sData, sizeof(sData));
+sData.origin = masterserver;
+sData.sensor = masterserver; 
+sData.data = 111;
+esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
 sData.data = 0;
 
@@ -654,9 +686,10 @@ sData.data = 0;
 tangrumtomb_card.attachCallback([](int value){
 buttonTimeout(&tangrumtomb_card);
 Serial.printf("Tangram Tomb Triggered\n");
+sData.origin = masterserver;
 sData.sensor = tomb_tangrum; 
 sData.data = 1;
-esp_err_t result = esp_now_send(m_tomb_tangrum, (uint8_t *) &sData, sizeof(sData));
+esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
 if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
 sData.data = 0;
 
@@ -667,10 +700,10 @@ sData.data = 0;
   // clock_armed.update("ARMED", "success");
   // clock_timeout.update("Working", "success");
   // clock_reset.update(1);
-  attic_rfid1.update("None", "warning");
-  attic_rfid2.update("None", "warning");
-  attic_rfid3.update("None", "warning");
-  attic_rfid4.update("None", "warning");
+  attic_rfid1.update("Unknown", "danger");
+  attic_rfid2.update("Unknown", "danger");
+  attic_rfid3.update("Unknown", "danger");
+  attic_rfid4.update("Unknown", "danger");
   DOORTOUCH.update("Startup", "idle");
   dashboard.sendUpdates();
 }
@@ -706,6 +739,7 @@ void setup() {
   startespnow();
   registermac(m_clock);
   registermac(m_atticmaster);
+  registermac(m_tombmaster);
   registermac(m_train_thumb);
   registermac(m_train_keypad);
   registermac(m_RFID1);
