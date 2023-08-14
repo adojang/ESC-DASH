@@ -87,6 +87,7 @@ bool oneShot = false;
 bool readOneShot = true;
 bool RecvShot = false;
 bool reverse = false;
+bool forward = false;
 int sens1 = 0; 
 int sens2 = 0; 
 int sequence = 0;
@@ -114,6 +115,9 @@ void activateServo(){
   ledcWrite(1, 0);
   delay(1000);
 }
+
+
+
 
 void reverseServo(){
   Serial.println("reverseservo");
@@ -151,6 +155,9 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     //will not actually reverse unless clock is
   }
 
+     if(rData.origin == masterserver && rData.data == 42){
+      forward = true;
+  }
 
   // if(rData.origin == atticmaster && rData.sensor == attic_clock){
   //   if (rData.data == 1) RecvShot = true;
@@ -338,9 +345,24 @@ void getReadings() {
   sensorData = sensor.readRangeContinuousMillimeters();
   esp_task_wdt_reset(); // update the watchdoggie.
   Serial.println(sensorData);
+  WebSerial.printf("Raw SensorData: %d\n",sensorData);
+
+  /* These Are Possible Error Conditions:*/
+  /* 
+   * Sensor Constant 25 (below 100)
+   * Sensor Constant above 9000
+   * 
+   * If either of these two happen more than 25 times in a row, write an ERROR state to WebSerial   
+  
+  
+  
+  */
+
+
 
   if (sensorData < 100) {
     sens1 = HIGH;
+    counter++;
   }
   else {
     sens1 = LOW;
@@ -351,16 +373,19 @@ void getReadings() {
       counter++;
       }
 
-    if(counter >= 10){
+    if(counter >= 30){
     Serial.println("RESET!");
+    WebSerial.println("RESET! Either Constant LOW or Constant HIGH Error for Sensor 1 Averted.");
     sensorReset();
     counter = 0;
   }
 
 
   Serial.printf("sensor 1: %d\n", sens1);
+  WebSerial.printf("sensor 1: %d\n", sens1);
 
   Serial.printf("sensor 2: %d\n", sens2);
+  WebSerial.printf("sensor 2: %d\n", sens2);
   
   // Serial.println(sensor.readRangeContinuousMillimeters());
 }
@@ -421,7 +446,7 @@ void loop() {
     Serial.println("Send Oneshot");
     Serial.println(oneShot);
     activateServo();
-    
+  
     sequence=0;
   } 
   else if ((sequence==1) && (sens1==LOW) && (sens2==LOW)) { // both are covered
@@ -434,6 +459,7 @@ void loop() {
 
   //Motor Reverse Code that is called through the masterserver.
   if(reverse == true){
+    WebSerial.println("REVERSE = TRUE so Write to EEPROM");
     EEPROM.write(0, false);
     EEPROM.commit();
     
@@ -448,6 +474,20 @@ void loop() {
     // Serial.println(oneShot);
     //Reset to original position
     reverseServo();
+
+    //Need to update master
+  
+  }
+
+
+    if(forward == true){
+    WebSerial.println("FORWARD = TRUE so Write to EEPROM");
+    EEPROM.write(0, true);
+    EEPROM.commit();
+    oneShot = true;
+    forward = false;
+ 
+    activateServo();
 
     //Need to update master
   
