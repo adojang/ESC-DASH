@@ -72,6 +72,12 @@ dataPacket sData; // data to send
 dataPacket rData; // data to recieve
 
 /* Configuration and Setup */
+bool checkrfidstuck = false;
+bool RFID1_reset = false;
+bool RFID2_reset = false;
+bool RFID3_reset = false;
+bool RFID4_reset = false;
+
 
 unsigned long emergencyTrigger = 0;
 bool RFID1_complete = false;
@@ -94,6 +100,7 @@ unsigned short thumbreader_status_timer = 0;
 unsigned short tomb_status_timer = 0;
 unsigned short tomb_chalice_timer = 0;
 unsigned short tomb_tangrum_timer = 0;
+unsigned short tomb_sennet_timer = 0;
 
 
 #pragma region Cards
@@ -115,6 +122,7 @@ Card thumbreader_status(&dashboard, STATUS_CARD, "Thumb Reader", "warning");
 Card tomb_status(&dashboard, STATUS_CARD, "Spooky Tomb", "warning");
 Card chalice_status(&dashboard, STATUS_CARD, "Chalice", "warning");
 Card tangrum_status(&dashboard, STATUS_CARD, "Tangrum Puzzle", "warning");
+Card sennet_status(&dashboard, STATUS_CARD, "Sennet Puzzle", "warning");
 
 
 
@@ -135,6 +143,7 @@ Card DOORTOUCH(&dashboard, STATUS_CARD, "DoorTouch", "idle");
 // Card clock_timeout(&dashboard, STATUS_CARD, "Clock Sensor", "success");
 
 // Card clock_reset(&dashboard, BUTTON_CARD, "Arm/Disarm Clock");
+Card trigger_clock(&dashboard, BUTTON_CARD, "Manually Trigger Clock"); //momentary
 Card reset_clock(&dashboard, BUTTON_CARD, "Reset Clock Position"); //momentary
 
 Card overide_rfid(&dashboard, BUTTON_CARD, "Override All RFID"); //momentary
@@ -164,23 +173,28 @@ Tab tomb(&dashboard, "Ancient Tomb");
 
 /* Functions */
 void triggerDoor(int pin){
-  digitalWrite(pin, HIGH);
-  WebSerial.println("Door Opened");
-  Serial.println("Door Opened");
-  
+
+  //Write Before in case of a crash
   sData.origin = masterserver;
   sData.sensor = masterserver;
   sData.data = 1; // Door Open
   esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *) &sData, sizeof(sData));
+
+    digitalWrite(pin, HIGH);
+  WebSerial.println("Door Opened");
+  Serial.println("Door Opened");
+
   asynctimer.setTimeout([pin]() {
-      digitalWrite(pin, LOW);
-      WebSerial.println("Door Closed");
-      Serial.println("Door Closed");
+
       
       sData.origin = masterserver;
       sData.sensor = masterserver;
       sData.data = 0; // Door closed
       esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *) &sData, sizeof(sData));
+      digitalWrite(pin, LOW);
+      WebSerial.println("Door Closed");
+      Serial.println("Door Closed");
+
       delay(50);
     }, 3000);
 }
@@ -238,13 +252,17 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1)
   {
-    if(RFID1_complete == false){attic_rfid1.update("None", "warning");}     
+    if(RFID1_complete == false){
+      attic_rfid1.update("None", "warning");
+      RFID1_reset = true;
+      }     
     
     // if(rData.data == 0) {attic_rfid1.update("None", "warning");}  
 
     if (rData.data == 100){
       attic_rfid1.update("COMPLETE","success");
       RFID1_complete = true;
+      RFID1_reset = false;
     }
     // attic_rfid1.update("COMPLETE", "success");
     dashboard.sendUpdates();
@@ -252,9 +270,15 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
   {
-    if(RFID2_complete == false){attic_rfid2.update(rData.data, "warning");}
+    if(RFID2_complete == false){
+      attic_rfid2.update(rData.data, "warning");
+      RFID2_reset = false;
+    }
 
-    if(rData.data == 0) {attic_rfid2.update("None", "warning");} 
+    if(rData.data == 0) {
+      attic_rfid2.update("None", "warning");
+      RFID2_reset = true;
+      } 
 
     if (rData.data == 100){
       attic_rfid2.update("COMPLETE", "success");
@@ -266,9 +290,15 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3)
   {
     WebSerial.println("RFID3 Triggerd but is it updated?");
-    if(RFID3_complete == false){attic_rfid3.update(rData.data, "warning");}
+    if(RFID3_complete == false){
+      attic_rfid3.update(rData.data, "warning");
+      RFID3_reset = false;
+      }
 
-    if(rData.data == 0) {attic_rfid3.update("None", "warning");} 
+    if(rData.data == 0) {
+      attic_rfid3.update("None", "warning");
+      RFID3_reset = true;
+      } 
 
     if (rData.data == 100){
      attic_rfid3.update("COMPLETE", "success");
@@ -279,7 +309,15 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4)
   {
-    if(RFID4_complete == false){ attic_rfid4.update(rData.data, "warning");}
+    if(RFID4_complete == false){
+      attic_rfid4.update(rData.data, "warning");
+      }
+    
+    if(rData.data == 1){ // This is equivalent to RESET because 1 is always active.
+      RFID4_reset = true;
+      } else{
+         RFID4_reset = false;
+      }
 
     if(rData.data == 0) {attic_rfid4.update("None", "warning");} 
 
@@ -318,6 +356,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if(rData.origin == tombmaster && rData.sensor == status_alive) handleStatus(tomb_status_timer, &tomb_status);
   if(rData.origin == tomb_chalice && rData.sensor == status_alive) handleStatus(tomb_chalice_timer, &chalice_status);
   if(rData.origin == tomb_tangrum && rData.sensor == status_alive) handleStatus(tomb_tangrum_timer, &tangrum_status);
+  if(rData.origin == tomb_sennet && rData.sensor == status_alive) handleStatus(tomb_sennet_timer, &sennet_status);
 
 
 
@@ -365,6 +404,7 @@ void configDash(){
   tomb_status.update("Disconnected", "danger");
   chalice_status.update("Disconnected", "danger");
   tangrum_status.update("Disconnected", "danger");
+  sennet_status.update("Disconnected", "danger");
 
   /* Attic */
   humanchain_card.setTab(&attic);
@@ -380,6 +420,7 @@ void configDash(){
   // clock_armed.setTab(&attic);
   // clock_reset.setTab(&attic);
   reset_clock.setTab(&attic);
+  trigger_clock.setTab(&attic);
   // touchval.setTab(&attic);
   attic_rfid1.setTab(&attic);
   attic_rfid2.setTab(&attic);
@@ -493,6 +534,15 @@ buttonTimeout(&reset_RFID);
 Serial.println("RFID RESET triggered");
 WebSerial.printf("RFID RESET triggered\n");
 
+//Write TEMP so you can see its being reset:
+attic_rfid1.update("Resetting...", "danger");
+attic_rfid2.update("Resetting...", "danger");
+attic_rfid3.update("Resetting...", "danger");
+attic_rfid4.update("Resetting...", "danger");
+
+checkrfidstuck = true;
+
+dashboard.sendUpdates();
 
 RFID1_complete = false;
 RFID2_complete = false;
@@ -578,6 +628,22 @@ sData.origin = masterserver;
 sData.sensor = masterserver; 
 sData.data = 50;
 esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+sData.data = 0;
+  
+dashboard.sendUpdates();
+
+
+});
+
+trigger_clock.attachCallback([](int value){
+buttonTimeout(&trigger_clock);
+Serial.printf("Clock Returned to Starting Position\n");
+WebSerial.printf("Clock Returned to Starting Position\n");
+
+sData.origin = masterserver;
+sData.sensor = masterserver; 
+sData.data = 42;
+esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
 sData.data = 0;
   
 dashboard.sendUpdates();
@@ -747,6 +813,8 @@ void setup() {
   registermac(m_RFID3);
   registermac(m_RFID4);
   registermac(m_tomb_chalice);
+  registermac(m_tomb_sennet);
+
   configDash();
   startButtonCB();
   
@@ -794,11 +862,34 @@ rData.sensor = masterserver;
 
 }
 
+unsigned long rtime = millis();
+
 void loop() {
 
 
 if (millis() - ttime > 2000){ //Use this to print data regularly
   ttime = millis();
+}
+
+if(checkrfidstuck == true && (millis() - rtime > 4000)){
+  rtime = millis();
+  //Do a check every second to see if any of them are false.
+  //After 5sec, reset the faulty ones again.
+  int allreset = 0;
+  WebSerial.println("Check if RFID STUCK Run");
+  WebSerial.printf("%d,%d,%d,%d\n", RFID1_reset,RFID2_reset,RFID3_reset,RFID4_reset);
+
+  if(RFID1_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID1, (uint8_t *) &sData, sizeof(sData));}
+  
+  if(RFID2_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID2, (uint8_t *) &sData, sizeof(sData));}
+  if(RFID3_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID3, (uint8_t *) &sData, sizeof(sData));}
+  if(RFID4_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID4, (uint8_t *) &sData, sizeof(sData));}
+
+  // I might have to restart the ATTIC too, if there ends up being a discrepancy...
+
+  
+
+  if(allreset == 4) checkrfidstuck = false;
 }
 
 //Emergency Escape Button

@@ -28,7 +28,7 @@
 
 #define NAME "tombmaster"
 #define setMACAddress m_tombmaster
-#define WDT_TIMEOUT 6 // 5 seconds
+#define WDT_TIMEOUT 10 // 10 seconds
 
 #pragma region mac
 // Control
@@ -79,7 +79,7 @@ unsigned long ttime = millis();
 // Attic Variables
 String success;
 int emergencyFlag = 0;
-unsigned long emergencyTrigger = 0;
+unsigned long emergencyTrigger = millis();
 int touchtriggertimeout = 0;
 const unsigned long emergencyButtonTimeout = 5000;
 
@@ -260,7 +260,7 @@ void statusUpdate(){
   sData.origin = tombmaster;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
-  esp_task_wdt_reset();
+  esp_task_wdt_reset(); //restarts out after 10 seconds of not sending.
 }
 
 void setup() {
@@ -285,8 +285,8 @@ void setup() {
 
 
 // Changed for 25 and 26 the pins may have issues 12 must be output.
-  pinMode(12, OUTPUT); // IN emergency Button 3.3V
-  digitalWrite(12, HIGH);
+  pinMode(16, OUTPUT); // IN emergency Button 3.3V
+  digitalWrite(16, HIGH);
   pinMode(13, INPUT_PULLDOWN); // emergency Button IN
 
 
@@ -312,22 +312,6 @@ void setup() {
 asynctimer.setInterval([]() {statusUpdate();},  1000);
 
 
-
-// delay(2000);
-
-//Get Data from RFID Tag Sensors
-
-
-rData.data = 0;
-rData.origin = atticmaster;
-rData.sensor = atticmaster;
-esp_now_send(m_RFID1, (uint8_t *) &rData, sizeof(rData));
-esp_now_send(m_RFID2, (uint8_t *) &rData, sizeof(rData));
-esp_now_send(m_RFID3, (uint8_t *) &rData, sizeof(rData));
-esp_now_send(m_RFID4, (uint8_t *) &rData, sizeof(rData));
-
-
-
 emergencyTrigger = millis();
 WebSerial.println("End of Setup");
 touchtriggertimeout = millis();
@@ -342,7 +326,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
 
 int digitalDebounce(int pin){
   int value = 0;
-  if (digitalRead(pin)){
+  if (digitalRead(pin)){ // Takes 50ms
     for (int i = 0; i < 10; i++){
       if (digitalRead(pin) == 1) value++;
       delay(5);
@@ -363,10 +347,41 @@ int digitalDebounce(int pin){
 void loop() {
 
 
-if (WiFi.isConnected() == false){
+
+if (millis() - ttime > 2000){ //Use this to print data regularly
+  ttime = millis();
+  WebSerial.printf("Button: %d\n Emergency Trigger: %lu\n Millis: %lu\n",digitalDebounce(23),emergencyTrigger,millis());
+}
+
+
+
+//Emergency Escape Button Entrance Door
+if ((digitalDebounce(23)) && (millis() - emergencyTrigger) >= 3000)
+  {
+    emergencyTrigger = millis();
+    emergencyFlag = 0;
+    Serial.println("Emergency Button Pushed Entrance");
+    WebSerial.println("Emergency Button Pushed Entrance");
+    triggerDoor(5);
+    emergencyTrigger = millis(); // Weird relay back emf workaround
+  }
+
+  //Emergency Escape Button Sliding Door
+  if ((digitalDebounce(13)) && (millis() - emergencyTrigger) >= 3000)
+  {
+    emergencyTrigger = millis();
+    emergencyFlag = 0;
+    Serial.println("Emergency Button Pushed Sliding Door");
+    WebSerial.println("Emergency Button Pushed Sliding Door");
+    triggerDoor(18);
+    emergencyTrigger = millis(); // Weird relay back emf workaround
+  }
+
+
+  if (WiFi.isConnected() == false){
   WiFi.onEvent(WiFiStationDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   
-  Serial.println("Start Reconnect Process");
+  WebSerial.println("Start Reconnect Process");
   digitalWrite(2,HIGH);
   WiFi.softAPdisconnect();
   WiFi.disconnect(true);
@@ -380,44 +395,11 @@ if (WiFi.isConnected() == false){
   startespnow();
   digitalWrite(2,HIGH);
   while(!WiFi.isConnected()){
-    Serial.println("Waiting Forever...");
+    WebSerial.println("Waiting Forever...");
     delay(200);
     digitalWrite(2,LOW);
   }
-
-
 }
-
-
-if (millis() - ttime > 2000){ //Use this to print data regularly
-  ttime = millis();
-  WebSerial.println(digitalRead(23));
-  WebSerial.println(digitalRead(26));
-}
-
-
-
-//Emergency Escape Button OUT
-if ((digitalDebounce(23)) && (millis() - emergencyTrigger) >= 3000)
-  {
-    emergencyTrigger = millis();
-    emergencyFlag = 0;
-    Serial.println("Emergency Button Pushed Entrance");
-    WebSerial.println("Emergency Button Pushed Entrance");
-    triggerDoor(5);
-    emergencyTrigger = millis(); // Weird relay back emf workaround
-  }
-
-  //Emergency Escape Button IN
-  if ((digitalDebounce(13)) && (millis() - emergencyTrigger) >= 3000)
-  {
-    emergencyTrigger = millis();
-    emergencyFlag = 0;
-    Serial.println("Emergency Button Pushed Sliding Door");
-    WebSerial.println("Emergency Button Pushed Sliding Door");
-    triggerDoor(18);
-    emergencyTrigger = millis(); // Weird relay back emf workaround
-  }
 
 
 

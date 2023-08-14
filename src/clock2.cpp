@@ -112,6 +112,7 @@ void getSensorData(){
   if (sensorData < 100) {
     Serial.println("Covered");
     digitalWrite(outPin, HIGH);
+    counter++;
   }
   else {
     //The Actual Value, see if its that massive error one.
@@ -123,8 +124,8 @@ void getSensorData(){
     digitalWrite(outPin, LOW);
   }
 
-  if(counter >= 10){
-    Serial.println("RESET!");
+  if(counter >= 20){
+    Serial.println("RESET! Either Constant LOW or Constant HIGH Error for Sensor 1 Averted.");
     sensorReset();
     counter = 0;
   }
