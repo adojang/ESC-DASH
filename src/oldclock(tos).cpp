@@ -24,6 +24,8 @@
 */
 
 #include <EscCore.h>
+#include <Wire.h>
+#include <VL53L0X.h>
 #include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
 #include <EEPROM.h>
 #define NAME "clock"
@@ -76,6 +78,7 @@ dataPacket sData; // data to send
 dataPacket rData; // data to recieve
 
 /* Configuration and Setup */
+VL53L0X sensor;
 
 const int inPin = 15;
 int servoPin = 13;
@@ -250,7 +253,11 @@ void statusUpdate(){
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
   Serial.println(result == ESP_OK ? "Status Update Sent" : "Status Update Failed");
-  esp_task_wdt_reset();
+
+  //Send the status of oneshot:
+
+
+
 }
 
 
@@ -279,9 +286,6 @@ void setup() {
   pinMode(23,OUTPUT);
   digitalWrite(23,LOW);
 
-    pinMode(15, INPUT); //sensor 1
-    pinMode(23, INPUT); // sensor1
-
   pinMode(resetPin, OUTPUT);
   pinMode(resetPin, HIGH);
 
@@ -295,6 +299,10 @@ void setup() {
   sData.origin = attic_clock;
   sData.sensor = attic_clock;
 
+  Wire.begin();
+  sensor.init();
+  sensor.setTimeout(0);
+  sensor.startContinuous();
 
   pinMode(inPin, INPUT_PULLDOWN);
   pinMode(18,OUTPUT);
@@ -311,19 +319,73 @@ void setup() {
 
 }
 
+void sensorReset(){
+  //End Everything.
+  sensor.stopContinuous();
+  Wire.endTransmission();
+
+    Serial.println("Sensor Reset!");
+    digitalWrite(resetPin, LOW);
+    delay(1000);
+    digitalWrite(resetPin, HIGH);
+    delay(1000);
+    //Init Sensor Again
+    if (!sensor.init()) {
+    Serial.println("Failed To Detect Sensor.. Restarting!!");
+    ESP.restart();
+  }
+
+    sensor.setTimeout(500); // https://forum.pololu.com/t/vlx53l0x-timeout-issues/18553/15
+    sensor.startContinuous();
+}
+
 void getReadings() {
   static uint8_t counter = 0;
+  sens2 = digitalRead(inPin);
+  sensorData = sensor.readRangeContinuousMillimeters();
+  esp_task_wdt_reset(); // update the watchdoggie.
+  Serial.println(sensorData);
+  WebSerial.printf("Raw SensorData: %d\n",sensorData);
 
-  sens1 = digitalRead(15);
-  sens2 = digitalRead(23);
+  /* These Are Possible Error Conditions:*/
+  /* 
+   * Sensor Constant 25 (below 100)
+   * Sensor Constant above 9000
+   * 
+   * If either of these two happen more than 25 times in a row, write an ERROR state to WebSerial   
+  
+  
+  
+  */
 
 
 
-  // Serial.printf("sensor 1: %d\n", sens1);
-  // WebSerial.printf("sensor 1: %d\n", sens1);
+  if (sensorData < 100) {
+    sens1 = HIGH;
+    counter++;
+  }
+  else {
+    sens1 = LOW;
+  }
 
-  // Serial.printf("sensor 2: %d\n", sens2);
-  // WebSerial.printf("sensor 2: %d\n", sens2);
+  if(sensorData > 9000){
+    
+      counter++;
+      }
+
+    if(counter >= 30){
+    Serial.println("RESET!");
+    WebSerial.println("RESET! Either Constant LOW or Constant HIGH Error for Sensor 1 Averted.");
+    sensorReset();
+    counter = 0;
+  }
+
+
+  Serial.printf("sensor 1: %d\n", sens1);
+  WebSerial.printf("sensor 1: %d\n", sens1);
+
+  Serial.printf("sensor 2: %d\n", sens2);
+  WebSerial.printf("sensor 2: %d\n", sens2);
   
   // Serial.println(sensor.readRangeContinuousMillimeters());
 }
@@ -344,20 +406,7 @@ unsigned long gtime = millis();
   //Sense1 is where the hole will be.
   //Sense2 is where the hole is covered.
 
-// int counter = 0;
-// int clocktimer = millis();
-
 void loop() {
-
-// if (millis() - clocktimer > 30000){
-//   clocktimer = millis();
-//   counter += 1;
-//   WebSerial.printf("Count of Successfull UP/DOWN sequences: %d\n", counter);
-//   //trigger clock up and down... Will not write to EEPROM.
-//   activateServo();
-//   delay(10000);
-//   reverseServo();
-// }
 
   if(millis()-gtime > 1000){
     gtime = millis();
@@ -380,11 +429,11 @@ void loop() {
   getReadings();
 
 
-  if ((sequence==0) && (sens1==LOW) && (sens2==LOW)){ // If both are covered.
+  if ((sequence==0) && (sens1==HIGH) && (sens2==HIGH)){ // both are initially open.
     sequence=1;
   }
   
-  if ((sequence==1) && (sens1==HIGH) && (sens2==LOW) && (oneShot == false)) { // correct holes covered, trigger
+  if ((sequence==1) && (sens1==LOW) && (sens2==HIGH) && (oneShot == false)) { // correct holes covered, trigger
     oneShot = true;
     EEPROM.write(0, true);
     EEPROM.commit();
@@ -394,13 +443,13 @@ void loop() {
     if (oneShot == true) sData.data = 1;
     if (oneShot == false) sData.data = 0;
     esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-    WebSerial.println("Send Oneshot. Clock now thinks it is in UP position.");
+    Serial.println("Send Oneshot");
     Serial.println(oneShot);
     activateServo();
   
     sequence=0;
   } 
-  else if ((sequence==1) && (sens1==HIGH) && (sens2==HIGH)) { // both are open
+  else if ((sequence==1) && (sens1==LOW) && (sens2==LOW)) { // both are covered
     sequence=0;
   }
   printSequence();

@@ -162,6 +162,7 @@ Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
 /* All Aboard (Train) */
 Card trainroomdoor_card(&dashboard, BUTTON_CARD, "Open Train Room Door"); //momentary
 Card thumbreader_card(&dashboard, BUTTON_CARD, "Overide Thumb Reader"); //momentary
+Card thumbreader_recalibrate_card(&dashboard, BUTTON_CARD, "Recalibrate Thumb Reader"); //momentary
 
 /* Tabs */
 Tab attic(&dashboard, "Attic");
@@ -440,8 +441,11 @@ void configDash(){
   
   /* Train */
   thumbreader_card.setTab(&train);
+  thumbreader_recalibrate_card.setTab(&train);
   trainroomdoor_card.setTab(&train);
   thumbreader_card.setSize(6,6,6,6,6,6);
+  thumbreader_recalibrate_card.setSize(6,6,6,6,6,6);
+  
   trainroomdoor_card.setSize(6,6,6,6,6,6);
 }
 
@@ -480,6 +484,20 @@ buttonTimeout(&thumbreader_card);
   sData.origin = masterserver;
   sData.sensor = masterserver;
   sData.data = 1;
+  esp_err_t result = esp_now_send(m_train_thumb, (uint8_t *) &sData, sizeof(sData));
+  if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
+  sData.data = 0;
+
+});
+
+
+thumbreader_recalibrate_card.attachCallback([](int value){
+buttonTimeout(&thumbreader_recalibrate_card);
+  Serial.printf("Thumbreader Recallibrated\n");
+  WebSerial.println("Thumbreader Recallibrated via web");
+  sData.origin = masterserver;
+  sData.sensor = masterserver;
+  sData.data = 66;
   esp_err_t result = esp_now_send(m_train_thumb, (uint8_t *) &sData, sizeof(sData));
   if (result != ESP_OK) { Serial.println("Error. Probably not Registerd.");}
   sData.data = 0;
@@ -864,8 +882,18 @@ rData.sensor = masterserver;
 
 unsigned long rtime = millis();
 
+// int relaycount = 0;
+// unsigned long relaytime = millis();
+
+
 void loop() {
 
+  // if(millis() - relaytime > 7000){
+  //   relaytime = millis();
+  //   relaycount += 1;
+  //   WebSerial.printf("Relay Switching Count: %d\n", relaycount);
+  //   triggerDoor(5);
+  // }
 
 if (millis() - ttime > 2000){ //Use this to print data regularly
   ttime = millis();

@@ -90,6 +90,7 @@ bool RFID2_status = false;
 bool RFID3_status = false;
 bool RFID4_status = false;
 
+
 //WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING 
 
 
@@ -171,7 +172,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
     emergencyFlag = 0;
     Serial.println("Chalice Button Pushed");
     WebSerial.println("Chalice Button Pushed");
-    triggerDoor(18);
+    triggerDoor(19);
     emergencyTrigger = millis(); // Weird relay back emf workaround
     }
 
@@ -180,7 +181,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
     emergencyFlag = 0;
     Serial.println("Sliding Door Override");
     WebSerial.println("Sliding Door Override");
-    triggerDoor(18);
+    triggerDoor(19);
     emergencyTrigger = millis(); // Weird relay back emf workaround
     }
 
@@ -201,7 +202,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 
     if (rData.origin == masterserver && rData.sensor == tomb_slidedoorOverride && rData.data){
       emergencyTrigger = millis();
-      triggerDoor(18);
+      triggerDoor(19);
       Serial.println("Master Server Override");
       WebSerial.println("Master Server Override");
       emergencyTrigger = millis();
@@ -209,7 +210,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 
     if (rData.origin == masterserver && rData.sensor == tomb_tangrum && rData.data && rData.data == 1){
       emergencyTrigger = millis();
-      triggerDoor(19);
+      triggerDoor(18);
       Serial.println("Master Server Tomb Override");
       WebSerial.println("Master Server Tomb Override");
       emergencyTrigger = millis();
@@ -217,7 +218,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 
       if (rData.origin == tomb_tangrum && rData.sensor == tomb_tangrum && rData.data && rData.data == 1){
       emergencyTrigger = millis();
-      triggerDoor(19);
+      triggerDoor(18);
       Serial.println("Tangrum Puzzle Triggered, Open Tomb");
       WebSerial.println("Tangrum Puzzle Triggered, Open Tomb");
       emergencyTrigger = millis();
@@ -293,16 +294,16 @@ void setup() {
   //Relay Outputs
   pinMode(2, OUTPUT);
   pinMode(5, OUTPUT); // Front Door
-  pinMode(18, OUTPUT); // Inner Door
   pinMode(19, OUTPUT); // TOMB
+  pinMode(18, OUTPUT); // Inner Door
   pinMode(21, OUTPUT);
   
   //Startup Sequence
   digitalWrite(5, LOW);
   delay(250);
-  digitalWrite(18, LOW);
-  delay(250);
   digitalWrite(19, LOW);
+  delay(250);
+  digitalWrite(18, LOW);
   delay(250);
   digitalWrite(21, LOW);
   #pragma endregion gpio
@@ -373,7 +374,7 @@ if ((digitalDebounce(23)) && (millis() - emergencyTrigger) >= 3000)
     emergencyFlag = 0;
     Serial.println("Emergency Button Pushed Sliding Door");
     WebSerial.println("Emergency Button Pushed Sliding Door");
-    triggerDoor(18);
+    triggerDoor(19);
     emergencyTrigger = millis(); // Weird relay back emf workaround
   }
 
@@ -400,6 +401,7 @@ if ((digitalDebounce(23)) && (millis() - emergencyTrigger) >= 3000)
     digitalWrite(2,LOW);
   }
 }
+
 
 
 

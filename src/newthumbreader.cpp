@@ -93,7 +93,7 @@ float currentValue = 0.0;
 float previousEMA = 0.0;
 float prevousEMA2 = 0.0;
 float smoothingFactor = 0.8;  // Adjust this value based on your application
-
+//original value was 0.8
 
 /* Functions */
 void opensesame(int pin){
@@ -121,6 +121,13 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
     Serial.println("Override Button Pressed");
     WebSerial.println("Override Button Pressed");
     opensesame(13); // Open the door
+  }
+
+    if((rData.origin == masterserver) && (rData.sensor == masterserver) && (rData.data == 66)){
+    Serial.println("ESP32 RESTART and RECALLIBRATE");
+    WebSerial.println("ESP32 RESTART and RECALLIBRATE");
+    delay(500);
+    ESP.restart();
   }
 
 }
@@ -172,7 +179,7 @@ while(continuecalibration){
   if (millis() - locktimer > 10000){
     continuecalibration = false; // We have reached equilibrum, no triggering for 5 seconds
     Serial.printf("\n");
-    tuneconstant = tuneconstant*1.2;
+    tuneconstant = tuneconstant*1.25; // SLIGHT increase from baseline. Increased here based on feedback from Wendy from 1.2 to 1.25
     Serial.printf("Final Threshhold: %f\n", OPENVALUE*tuneconstant);
     WebSerial.printf("Final Threshhold: %f\n", OPENVALUE*tuneconstant);
   }
@@ -258,19 +265,20 @@ previousEMA = filteredValue;
   
 if (millis() - ttime > 2000){
   ttime = millis();
-  WebSerial.printf("Absolute Read Value: %f\n", (absolute(filteredValue)));
-  WebSerial.printf("Threshold Value: %f\n", OPENVALUE*tuneconstant);
-  WebSerial.printf("ThreshHold - Read Value: [%f > %f]  \n",absolute(OPENVALUE - filteredValue), tuneconstant*OPENVALUE);
+  // WebSerial.printf("Absolute Read Value: %f\n", (absolute(filteredValue)));
+  // WebSerial.printf("Threshold Value: %f\n", OPENVALUE*tuneconstant);
+  WebSerial.printf("Read Value > ThreshHold [%f > %f]  \n",absolute(OPENVALUE - filteredValue), tuneconstant*OPENVALUE);
 
   Serial.println(absolute(OPENVALUE - filteredValue));
 }
 
+//Open value is my resting, non-finger state. filtered value is my finger being there.
 
 if (absolute(OPENVALUE - filteredValue) > tuneconstant*OPENVALUE && ((millis() - locktimer) > 2000)){
-  Serial.printf("OpenValue: %f\n", OPENVALUE);
-  Serial.printf("filteredValue: %f\n", filteredValue);
-  Serial.printf("Threshhold: %f\n", OPENVALUE*tuneconstant);
-  Serial.printf("Difference: %f\n", absolute(OPENVALUE - filteredValue));
+  WebSerial.printf("OpenValue: %f\n", OPENVALUE);
+  WebSerial.printf("filteredValue: %f\n", filteredValue);
+  WebSerial.printf("Threshhold: %f\n", OPENVALUE*tuneconstant);
+  WebSerial.printf("Difference: %f\n", absolute(OPENVALUE - filteredValue));
   locktimer = millis();;
   WebSerial.println("OpenSesame");
   opensesame(13); // 5s timeout til resets.

@@ -308,6 +308,8 @@ void setup() {
   sData.origin = tomb_tangrum;
   sData.sensor = tomb_tangrum;
 
+  pinMode(2,OUTPUT);
+  digitalWrite(2,HIGH);
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
 }

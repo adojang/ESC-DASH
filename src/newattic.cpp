@@ -25,10 +25,10 @@
 
 #include <EscCore.h>
 #include <config.h>
-
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
 #define NAME "atticmaster"
 #define setMACAddress m_atticmaster
-
+#define WDT_TIMEOUT 15 // 15 seconds
 #pragma region mac
 // Control
 uint8_t m_masterserver[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00};
@@ -147,7 +147,7 @@ if (readingcounter >= 100) {
 }
 
 void triggerDoor(int pin){
-  digitalWrite(pin, HIGH);
+  digitalWrite(pin, LOW);
   Serial.println("Door Opened");
   emergencyTrigger = millis(); // to prevent unwanted emf from accidently triggering.
 
@@ -158,7 +158,7 @@ void triggerDoor(int pin){
   esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
 
   asynctimer.setTimeout([pin]() {
-      digitalWrite(pin, LOW);
+      digitalWrite(pin, HIGH);
       Serial.println("Door Closed");
       emergencyTrigger = millis(); // to prevent unwanted emf from accidently triggering.
     }, 3000);
@@ -355,10 +355,14 @@ void statusUpdate(){
   sData.origin = atticmaster;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+    esp_task_wdt_reset();
 }
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
   
   Core.startup(setMACAddress, NAME, server);
   startespnow();
@@ -368,6 +372,7 @@ void setup() {
   registermac(m_RFID2);
   registermac(m_RFID3);
   registermac(m_RFID4);
+  
 
   #pragma region gpio
   
@@ -379,7 +384,7 @@ void setup() {
   pinMode(18, OUTPUT);
   pinMode(19, OUTPUT);
   pinMode(21, OUTPUT);
-  digitalWrite(5, LOW);
+  digitalWrite(5, HIGH);
   delay(250);
   digitalWrite(18, LOW);
   delay(250);
@@ -480,6 +485,7 @@ int digitalDebounce(int pin){
           }
     }
 }
+
 
 void loop() {
 
