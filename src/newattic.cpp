@@ -104,6 +104,7 @@ int readingcounter = 0;
 float currentValue = 0.0;
 float previousEMA = 0.0;
 float prevousEMA2 = 0.0;
+bool bike_enabled = true;
 
 float smoothingFactor = 0.8;  // Adjust this value based on your application //0.8 600-3400 floating, 4000 touching
 
@@ -179,12 +180,21 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 
     if(rData.origin == masterserver && rData.sensor == attic_bike){
       
-      if(rData.data == 1){ ledcWrite(1, (4000));
+      if(rData.data == 1){ 
+      
+      ledcWrite(1, (4000));
       digitalWrite(2,HIGH);
+      //DISABLE THE BIKE LIGHT MESSAGES
+      bike_enabled = false;
+
       }
       if(rData.data == 0) {
         digitalWrite(2,LOW);
         ledcWrite(1, (0));
+
+        //ENABLE BIKE LIGHT MESSAGES
+      bike_enabled = true;
+
       }
     }
 
@@ -324,8 +334,13 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
     {
     //Send Data to LED to light up appropriately
       //4000 / 100 = 40
-      ledcWrite(1, ((40)*rData.data));
-      // Serial.println(rData.data);
+      if(bike_enabled){
+        ledcWrite(1, ((40)*rData.data));
+        // Serial.println(rData.data);
+
+      }
+
+
 
     }
 }

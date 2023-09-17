@@ -239,6 +239,8 @@ void loop() {
       }
       Serial.println();
       Serial.println(uidText);
+      WebSerial.println();
+      WebSerial.println(uidText);
 
       if(uidText == "f3216c"){
         Serial.println("Pin 13 Reader 1 Triggered.");

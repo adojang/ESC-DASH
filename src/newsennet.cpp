@@ -24,9 +24,12 @@
 */
 
 #include <EscCore.h>
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery if it get stuck
+
 
 #define NAME "sennet"
 #define setMACAddress m_tomb_sennet
+#define WDT_TIMEOUT 10 // 10 seconds
 
 #pragma region mac
 // Control
@@ -147,6 +150,7 @@ void statusUpdate(){
   sData.origin = tomb_sennet;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_task_wdt_reset(); //restarts out after 10 seconds of not sending.
 }
 
 void readPin(uint8_t pin)
@@ -162,113 +166,6 @@ void readPin(uint8_t pin)
     {
       totalc++;
 
-    //   Serial.printf("Pin %d: 1 \n", pin);
-    //   switch (pin)
-    //   {
-    //   case 17:
-    //     pin17 = 1;
-    //     totalc++;
-    //     break;
-    //   case 18:
-    //     pin18 = 1;
-    //     totalc++;
-    //     break;
-    //   case 19:
-    //     pin19 = 1;
-    //     totalc++;
-    //     break;
-    //   case 21:
-    //     pin21 = 1;
-    //     totalc++;
-    //     break;
-    //   case 22:
-    //     pin22 = 1;
-    //     totalc++;
-    //     break;
-    //   case 23:
-    //     pin23 = 1;
-    //     totalc++;
-    //     break;
-    //   case 25:
-    //     pin25 = 1;
-    //     totalc++;
-    //     break;
-    //   case 26:
-    //     pin26 = 1;
-    //     totalc++;
-    //     break;
-    //   case 27:
-    //     pin27 = 1;
-    //     totalc++;
-    //     break;
-    //   case 32:
-    //     pin32 = 1;
-    //     totalc++;
-    //     break;
-    //   case 33:
-    //     pin33 = 1;
-    //     totalc++;
-    //     break;
-    //   case 34:
-    //     pin34 = 1;
-    //     totalc++;
-    //     break;
-    //   case 35:
-    //     pin35 = 1;
-    //     totalc++;
-    //     break;
-    //   default:
-    //     break;
-    //   }
-    // }
-    // else
-    // {
-    //   Serial.printf("Pin %d: 0 \n", pin);
-    //   switch (pin)
-    //   {
-    //   case 17:
-    //     pin17 = 0;
-    //     break;
-    //   case 18:
-    //     pin18 = 0;
-    //     break;
-    //   case 19:
-    //     pin19 = 0;
-    //     break;
-    //   case 21:
-    //     pin21 = 0;
-    //     break;
-    //   case 22:
-    //     pin22 = 0;
-    //     break;
-    //   case 23:
-    //     pin23 = 0;
-    //     break;
-    //   case 25:
-    //     pin25 = 0;
-    //     break;
-    //   case 26:
-    //     pin26 = 0;
-    //     break;
-    //   case 27:
-    //     pin27 = 0;
-    //     break;
-    //   case 32:
-    //     pin32 = 0;
-    //     break;
-    //   case 33:
-    //     pin33 = 0;
-    //     break;
-    //   case 34:
-    //     pin34 = 0;
-    //     break;
-    //   case 35:
-    //     pin35 = 0;
-    //     break;
-    //   default:
-    //     break;
-    //   }
-    // }
     
 }
 reading = 0;
@@ -305,6 +202,11 @@ void setup() {
   registermac(m_masterserver);
   registermac(m_tombmaster);
 
+  Serial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
+
+
   sData.origin = tomb_tangrum;
   sData.sensor = tomb_tangrum;
 
@@ -318,7 +220,20 @@ void setup() {
 
 unsigned long ttimer = millis();
 bool oneshotEnable = true;
+
+// unsigned long ktimer = millis();
+// int kcounter = 0;
 void loop() {
+
+  // if (millis() - ktimer > 10000){
+  //   if (kcounter < 100)
+  //   {
+  //     ktimer = millis();
+  //     kcounter += 1;
+  //     WebSerial.printf("Number of Times Triggered: %d\n", kcounter);
+  //     openDrawer();
+  //   }
+  // }
 
 
 if (totalc == 4 && millis() - ttimer > 2000 && oneshotEnable == true){
