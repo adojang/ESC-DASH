@@ -151,7 +151,7 @@ Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
 Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
 Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
 Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4 Status", "idle");
-Card attic_bikelight(&dashboard, BUTTON_CARD, "Bike Light");
+Card attic_bikelight(&dashboard, BUTTON_CARD, "Bike Light Override");
 
 /* Ancient Tomb */
 Card maindoor_override(&dashboard, BUTTON_CARD, "Open Main Door"); //momentary
@@ -427,6 +427,7 @@ void configDash(){
   attic_rfid2.setTab(&attic);
   attic_rfid3.setTab(&attic);
   attic_rfid4.setTab(&attic);
+  attic_bikelight.setTab(&attic);
   // humanchain_card.setSize(6,6,6,6,6,6);
 
   /* Tomb */

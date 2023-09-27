@@ -85,7 +85,7 @@ int pin22 = 0;
 int pin23 = 0;
 int pin25 = 0;
 int pin26 = 0;
-int pin27 = 0;
+int pin13 = 0;
 int pin32 = 0;
 int pin33 = 0;
 int pin34 = 0;
@@ -96,9 +96,9 @@ int pin35 = 0;
 
 void openDrawer()
 {
-  digitalWrite(27,LOW);
+  digitalWrite(13,LOW);
   delay(1000);
-  digitalWrite(27,HIGH);
+  digitalWrite(13,HIGH);
   // sData.origin = tomb_tangrum;
   // sData.sensor = tomb_tangrum;
   // sData.data = 1; // puzzle complete
@@ -186,8 +186,8 @@ void setup() {
   pinMode(23,OUTPUT);
   pinMode(25,OUTPUT);
   pinMode(26,OUTPUT);
-  pinMode(27,OUTPUT); // Relay Trigger Pin
-  digitalWrite(27,HIGH);
+  pinMode(13,OUTPUT); // Relay Trigger Pin
+  digitalWrite(13,HIGH);
   digitalWrite(22,HIGH);
   digitalWrite(23,HIGH);
   digitalWrite(25,HIGH);

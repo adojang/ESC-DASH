@@ -131,7 +131,7 @@ float normalise(float output) {
     if (output>2) {
         output=2;
     }
-    output = output/2;
+    output = output/1.2;
     return output;
 }
 
@@ -140,7 +140,7 @@ float normalise(float output) {
   sData.origin = attic_bike;
   sData.sensor = attic_bike;
   esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-  Serial.println(sData.data);
+  // Serial.println(sData.data);
  }
 
 
@@ -263,13 +263,23 @@ void loop() {
       output=freqNorm;
       // Serial.println(output);
       sData.data = int(output*100);
+      
+
+      if(sData.data == 166){
+        //Edge case trying to detect anything that's outside of the range we want.
+        sData.data = 0;
+      }
+
+      if (sData.data > 100) sData.data = 100; // Ensures our output scales from 0 to 100
+      Serial.println(sData.data);
+
   }
 
-  if(currentState==HIGH){
-    digitalWrite(INTERNAL_LED, HIGH);
-  } else {
-    digitalWrite(INTERNAL_LED, LOW);
-  }
+  // if(currentState==HIGH){
+  //   digitalWrite(INTERNAL_LED, HIGH);
+  // } else {
+  //   digitalWrite(INTERNAL_LED, LOW);
+  // }
 
   
   asynctimer.handle();
