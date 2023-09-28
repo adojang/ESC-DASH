@@ -24,6 +24,8 @@
 */
 
 #include <EscCore.h>
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
+#define WDT_TIMEOUT 15 // 15 seconds
 
 /* RFID */
 #include <SPI.h>
@@ -167,11 +169,15 @@ void statusUpdate(){
   sData.origin = attic_RFID3;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_task_wdt_reset();
 }
 
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
 
   Core.startup(setMACAddress, NAME, server);
   startespnow();
@@ -215,7 +221,7 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
 }
 
 unsigned long ttimer = millis();
-
+unsigned long wstimer = millis();
 void loop() {
 
   
@@ -267,8 +273,19 @@ void loop() {
 
 /* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */
 
-  delay(25); // This delay might cause in problems when multiple readers are used...
+  delay(50); // This delay might cause in problems when multiple readers are used...
 
+  // if(millis() - wstimer > 2000){
+  //   wstimer = millis();
+
+  //   WebSerial.printf("Card UUID Presence 1 Check: %d\n", mfrc522[0].PICC_IsCardPresent());
+  //   WebSerial.printf("Card UUID Presence 2 Check: %d\n", mfrc522[1].PICC_IsCardPresent());
+  //   WebSerial.printf("Card UUID Presence 3 Check: %d\n\n", mfrc522[2].PICC_IsCardPresent());
+
+
+  //   WebSerial.printf("Hex1: %s\n Hex2: %s\n Hex3: %s\n", (hex1 ? "True" : "False"), (hex2 ? "True" : "False"), (hex3 ? "True" : "False"));
+
+  // }
 
   asynctimer.handle();
 }

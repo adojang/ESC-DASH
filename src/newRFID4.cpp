@@ -24,6 +24,8 @@
 */
 
 #include <EscCore.h>
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
+#define WDT_TIMEOUT 15 // 15 seconds
 
 /* RFID */
 #include <SPI.h>
@@ -182,12 +184,16 @@ void statusUpdate(){
   sData.origin = attic_RFID4;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_task_wdt_reset();
 }
 
 
 void setup() {
   Serial.begin(115200);
-
+  Serial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
+  
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
