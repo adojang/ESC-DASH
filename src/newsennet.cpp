@@ -225,13 +225,16 @@ bool oneshotEnable = true;
 // int kcounter = 0;
 void loop() {
 
-  // if (millis() - ktimer > 10000){
+  // if (millis() - ktimer > random(5000, 20001)){
   //   if (kcounter < 100)
   //   {
   //     ktimer = millis();
   //     kcounter += 1;
   //     WebSerial.printf("Number of Times Triggered: %d\n", kcounter);
   //     openDrawer();
+  //   }
+  //   if (kcounter > 100){
+  //     WebSerial.printf("PASS - TEST SUCCESFFULL\n");
   //   }
   // }
 
