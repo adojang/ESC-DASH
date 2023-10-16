@@ -8,6 +8,7 @@
 #define WIFI_SSID "A_SSID"
 #define WIFI_PASS "supersecretpassword"
 
+//Save this file as config.h right here in this dir for it to work.
 
 #endif
 
