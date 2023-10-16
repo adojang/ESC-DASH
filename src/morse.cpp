@@ -1,16 +1,18 @@
 /*
-  --------------------------------------------------------------------------
-  This Morse code doesn't use wifi because of the bad signal.
-  Adriaan van Wijk
-  22 May 2023
+--------------------------------------------------------------------------
+                          Tygervallei Escape Room Project
+--------------------------------------------------------------------------                          
+  Author: Adriaan van Wijk
+  Date: 16 October 2023
 
-  12 Key Keypad that opens an electromagnetic lock when the correct code is entered.
+  This code is part of a multi-node project involving Escape Rooms in Tygervallei,
+  South Africa.
 
-  Copyright [2023] [Proxonics (Pty) Ltd]
+  Copyright (c) 2023 Proxonics (Pty) Ltd
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  You may obtain a copy of the License at:
 
   http://www.apache.org/licenses/LICENSE-2.0
 
@@ -21,6 +23,7 @@
   limitations under the License.
   --------------------------------------------------------------------------
 */
+
 
 #define NAME "morse"
 #define MACAD 0xA9 // Manually Refer to Table in Conventions

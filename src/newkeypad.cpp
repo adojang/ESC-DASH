@@ -1,17 +1,18 @@
 /*
-  --------------------------------------------------------------------------
-  Escape Room Template
-  Adriaan van Wijk
-  22 May 2023
+--------------------------------------------------------------------------
+                          Tygervallei Escape Room Project
+--------------------------------------------------------------------------                          
+  Author: Adriaan van Wijk
+  Date: 16 October 2023
 
-  This code is part of a multi-node project which involes Esc Rooms in Tygervallei,
+  This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
 
-  Copyright [2023] [Proxonics (Pty) Ltd]
+  Copyright (c) 2023 Proxonics (Pty) Ltd
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  You may obtain a copy of the License at:
 
   http://www.apache.org/licenses/LICENSE-2.0
 
@@ -22,6 +23,7 @@
   limitations under the License.
   --------------------------------------------------------------------------
 */
+
 
 #include <EscCore.h>
 #include <Adafruit_Keypad.h>

@@ -1,17 +1,18 @@
 /*
-  --------------------------------------------------------------------------
-  Escape Room Template
-  Adriaan van Wijk
-  22 May 2023
+--------------------------------------------------------------------------
+                          Tygervallei Escape Room Project
+--------------------------------------------------------------------------                          
+  Author: Adriaan van Wijk
+  Date: 16 October 2023
 
-  This code is part of a multi-node project which involes Esc Rooms in Tygervallei,
+  This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
 
-  Copyright [2023] [Proxonics (Pty) Ltd]
+  Copyright (c) 2023 Proxonics (Pty) Ltd
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  You may obtain a copy of the License at:
 
   http://www.apache.org/licenses/LICENSE-2.0
 
@@ -22,7 +23,6 @@
   limitations under the License.
   --------------------------------------------------------------------------
 */
-
 #include <EscCore.h>
 #include <esp_task_wdt.h> // watchdog for doorlock mag recovery if it get stuck
 
@@ -96,9 +96,36 @@ int pin35 = 0;
 
 void openDrawer()
 {
+
+  //I do this because of some issue with the maglock.
+  //I suspect its a current issue, as the voltage drops significantly such that its unable to function while trying to do the work.
+  //This fix for this is to pulse it a few times, to build up power within the inductive coil, while allowing the source the time to replenish itself.
+
+  for (int i = 0; i< 3; i++)
+  {
   digitalWrite(13,LOW);
-  delay(1000);
+  delay(200);
   digitalWrite(13,HIGH);
+  delay(100);
+  }
+ 
+//  digitalWrite(13,LOW);
+//   delay(100);
+//   digitalWrite(13,HIGH);
+
+//   delay(100);
+
+//   digitalWrite(13,LOW);
+//   delay(100);
+//   digitalWrite(13,HIGH);
+
+//   delay(100);
+
+//   digitalWrite(13,LOW);
+//   delay(100);
+//   digitalWrite(13,HIGH);
+
+
   // sData.origin = tomb_tangrum;
   // sData.sensor = tomb_tangrum;
   // sData.data = 1; // puzzle complete
@@ -221,22 +248,26 @@ void setup() {
 unsigned long ttimer = millis();
 bool oneshotEnable = true;
 
-// unsigned long ktimer = millis();
-// int kcounter = 0;
+unsigned long ktimer = millis();
+int kcounter = 0;
 void loop() {
 
-  // if (millis() - ktimer > random(5000, 20001)){
-  //   if (kcounter < 100)
-  //   {
-  //     ktimer = millis();
-  //     kcounter += 1;
-  //     WebSerial.printf("Number of Times Triggered: %d\n", kcounter);
-  //     openDrawer();
-  //   }
-  //   if (kcounter > 100){
-  //     WebSerial.printf("PASS - TEST SUCCESFFULL\n");
-  //   }
-  // }
+  if (millis() - ktimer > 1000){
+    if (kcounter < 100)
+    {
+      //yo
+      ktimer = millis();
+      // kcounter += 1;
+      WebSerial.printf("Seconds Online: %d\n", millis()/1000);
+      
+      // WebSerial.printf("Number of Times Triggered: %d\n", kcounter);
+      // openDrawer();
+    }
+    if (kcounter > 100){
+    //   WebSerial.printf("PASS - TEST SUCCESFFULL\n");
+    // }
+  }
+  }
 
 
 if (totalc == 4 && millis() - ttimer > 2000 && oneshotEnable == true){

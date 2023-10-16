@@ -1,17 +1,18 @@
 /*
-  --------------------------------------------------------------------------
-  Escape Room Template
-  Adriaan van Wijk
-  22 May 2023
+--------------------------------------------------------------------------
+                          Tygervallei Escape Room Project
+--------------------------------------------------------------------------                          
+  Author: Adriaan van Wijk
+  Date: 16 October 2023
 
-  This code is part of a multi-node project which involes Esc Rooms in Tygervallei,
+  This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
 
-  Copyright [2023] [Proxonics (Pty) Ltd]
+  Copyright (c) 2023 Proxonics (Pty) Ltd
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  You may obtain a copy of the License at:
 
   http://www.apache.org/licenses/LICENSE-2.0
 
@@ -22,6 +23,7 @@
   limitations under the License.
   --------------------------------------------------------------------------
 */
+
 
 #include <EscCore.h>
 #include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
@@ -90,7 +92,6 @@ int sens2 = 0;
 int sequence = 0;
 unsigned long t = 0;
 int servoPos = 0;
-bool resetall = false;
 uint16_t sensorData = 0;
 int resetPin = 13;
 const int PWM_pin1 = 4; // PWM Pin
@@ -113,9 +114,6 @@ void activateServo(){
   delay(1000);
 }
 
-
-
-
 void reverseServo(){
   Serial.println("reverseservo");
   ledcWrite(0, 0);
@@ -135,16 +133,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&rData, incomingData, sizeof(rData));
 
-    if(rData.origin == atticmaster && rData.data == 44){
 
-
-      resetall = true;
-
-
-
-
-
-    }
 
     if(rData.origin == masterserver && rData.data == 55){
       reverse = true;
@@ -156,12 +145,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
       forward = true;
   }
 
-  // if(rData.origin == atticmaster && rData.sensor == attic_clock){
-  //   if (rData.data == 1) RecvShot = true;
-  //   if(rData.data == 0) RecvShot = false;
-
-  //   Serial.println("Data Recv from AtticMaster");
-  // }
 
   if(rData.origin == masterserver && rData.data == 10){
   ledcWrite(0, 200);
@@ -205,20 +188,6 @@ int speeddata = rData.data*4.25;
 }
 }
 
-
-  // if(rData.origin == masterserver && rData.sensor == masterserver){
-
-  //   if(rData.data == 0) oneShot = true; //Lock Clock
-  //   if(rData.data == 1){
-  //   oneShot = false; //Unlock Clock
-  //   }
-
-
-  // }
-  // if (rData.origin == masterserver && rData.sensor == masterserver){
-  //   if(rData.data == 1) {activateServo();} // Manually Trigger Clock Servo
-
-  //   if(rData.data == 2) {reverseServo();} // Reverse Servo to Start
   // }
 
 

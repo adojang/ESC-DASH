@@ -1,17 +1,18 @@
 /*
-  --------------------------------------------------------------------------
-  Escape Room Template
-  Adriaan van Wijk
-  22 May 2023
+--------------------------------------------------------------------------
+                          Tygervallei Escape Room Project
+--------------------------------------------------------------------------                          
+  Author: Adriaan van Wijk
+  Date: 16 October 2023
 
-  This code is part of a multi-node project which involes Esc Rooms in Tygervallei,
+  This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
 
-  Copyright [2023] [Proxonics (Pty) Ltd]
+  Copyright (c) 2023 Proxonics (Pty) Ltd
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
+  You may obtain a copy of the License at:
 
   http://www.apache.org/licenses/LICENSE-2.0
 
@@ -166,7 +167,8 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) 
 {
   memcpy(&rData, incomingData, sizeof(rData));
-  
+
+
     if (rData.origin == tomb_chalice && rData.sensor == tomb_chalice && rData.data == 1){
     emergencyTrigger = millis();
     emergencyFlag = 0;
