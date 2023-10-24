@@ -80,7 +80,7 @@ dataPacket rData; // data to recieve
 /* Configuration and Setup */
 
 const int inPin = 15;
-int servoPin = 13;
+const int servoPin = 13;
 
 bool oneShot = false;
 bool readOneShot = true;
@@ -93,15 +93,18 @@ int sequence = 0;
 unsigned long t = 0;
 int servoPos = 0;
 uint16_t sensorData = 0;
-int resetPin = 13;
+const int resetPin = 13;
 const int PWM_pin1 = 4; // PWM Pin
 const int PWM_pin2 = 5; // PWM Pin
 unsigned long stoptimer = millis();
+const int lightpin = 16;
 
 /* Functions */
 
 
 void activateServo(){
+
+  digitalWrite(lightpin,HIGH);
   // 7.5mm per second speed
   // 6 seconds to go 45mm.
   ledcWrite(0, 200);
@@ -115,6 +118,7 @@ void activateServo(){
 }
 
 void reverseServo(){
+  digitalWrite(lightpin,LOW);
   Serial.println("reverseservo");
   ledcWrite(0, 0);
   ledcWrite(1, 200);
@@ -143,6 +147,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
      if(rData.origin == masterserver && rData.data == 42){
       forward = true;
+
   }
 
 
@@ -244,6 +249,15 @@ void setup() {
   ledcSetup(1, 1000, 8);
   ledcWrite(0, 0);
   ledcWrite(1, 0);
+
+//LED Light Power Point source
+pinMode(25,OUTPUT);
+digitalWrite(25,HIGH);
+
+//Triggering PIN, 0 = active, 1 = off
+  pinMode(lightpin, OUTPUT);
+  digitalWrite(lightpin,LOW);
+
 
   pinMode(23,OUTPUT);
   digitalWrite(23,LOW);
