@@ -37,6 +37,7 @@ uint8_t m_masterserver[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00};
 uint8_t m_trainmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
 uint8_t m_tombmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
 uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
+uint8_t m_tombreset[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x05};
 
 // Attic
 uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
@@ -168,6 +169,12 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 {
   memcpy(&rData, incomingData, sizeof(rData));
 
+        if(rData.origin == masterserver && rData.sensor == masterserver && rData.data == 999){
+      while(true){
+        Serial.println("Crashed");
+        delay(500);
+      }
+    }
 
     if (rData.origin == tomb_chalice && rData.sensor == tomb_chalice && rData.data == 1){
     emergencyTrigger = millis();
@@ -263,6 +270,7 @@ void statusUpdate(){
   sData.origin = tombmaster;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_err_t result2 = esp_now_send(m_tombreset, (uint8_t *) &sData, sizeof(sData));
   esp_task_wdt_reset(); //restarts out after 10 seconds of not sending.
 }
 
@@ -272,6 +280,7 @@ void setup() {
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
+  registermac(m_tombreset);
   registermac(m_tomb_chalice);
   registermac(m_tomb_sennet);
   registermac(m_tomb_tangrum);

@@ -37,7 +37,7 @@ uint8_t m_masterserver[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00};
 uint8_t m_trainmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
 uint8_t m_tombmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
 uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
-
+uint8_t m_atticreset[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x04};
 // Attic
 uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
 uint8_t m_attic_bike[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1};
@@ -164,6 +164,14 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) 
 {
   memcpy(&rData, incomingData, sizeof(rData));
+
+
+    if(rData.origin == masterserver && rData.sensor == masterserver && rData.data == 999){
+      while(true){
+        Serial.println("Crashed");
+        delay(500);
+      }
+    }
 
 
     if(rData.origin == masterserver && rData.sensor == attic_bike){
@@ -330,6 +338,7 @@ void statusUpdate(){
   sData.origin = atticmaster;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_err_t result2 = esp_now_send(m_atticreset, (uint8_t *) &sData, sizeof(sData));
     esp_task_wdt_reset();
 }
 
@@ -342,6 +351,7 @@ void setup() {
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
+  registermac(m_atticreset); // for external watchdog
   registermac(m_clock);
   registermac(m_RFID1);
   registermac(m_RFID2);
