@@ -80,7 +80,7 @@ dataPacket rData; // data to recieve
 
 /* Configuration and Setup */
 
-#define RST_PIN 5 // ESP32 pin GPIO21
+#define RST_PIN         5 // ESP32 pin GPIO21
 #define SS_1_PIN        13         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2
 #define SS_2_PIN        25 //EXCLUDED         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
 #define SS_3_PIN        26 
@@ -247,24 +247,21 @@ void loop() {
       Serial.println(uidText);
 
             if(uidText == "90bd4a26" && reader==0){
-        Serial.println("Pin 13 Reader 0 Triggered.");
-        WebSerial.println("Pin 13 Reader 0 Triggered.");
+        Serial.println("Pin 13 Reader 1 Triggered.");
+        WebSerial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
         sendData();
       } 
 
-      //TEMP Excluded by Wendy's Request (Bottom one)
-
-      // if(uidText == "c32f19a0" && reader==1){
       //   Serial.println("Pin 25 Reader 2 Triggered.");
       //   hex2 = true;
       //   sendData();
       // } 
 
                   if(uidText == "901fd026" && reader==1){
-        Serial.println("Pin 26 Reader 1 Triggered.");
-        WebSerial.println("Pin 26 Reader 1 Triggered.");
-        hex3 = true;
+        Serial.println("Pin 26 Reader 2 Triggered.");
+        WebSerial.println("Pin 26 Reader 2 Triggered.");
+        hex2 = true;
         sendData();
       }
 
@@ -276,19 +273,12 @@ void loop() {
       } 
 
                   if(uidText == "31cc8b" && reader==3){
-        Serial.println("Pin 32 Reader 5 Triggered.");
-        WebSerial.println("Pin 32 Reader 5 Triggered.");
-        hex5 = true;
+        Serial.println("Pin 32 Reader 3 Triggered.");
+        WebSerial.println("Pin 32 Reader 3 Triggered.");
+        hex3 = true;
         sendData();
       } 
 
-                  if(uidText == "919a1f1d" && reader == 4){
-        Serial.println("Pin 33 Reader 5 Triggered.");
-        WebSerial.println("Pin 33 Reader 5 Triggered.");
-        
-        hex6 = true;
-        sendData();
-      } 
       
       //  Serial.print(F("PICC type: "));
        MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
