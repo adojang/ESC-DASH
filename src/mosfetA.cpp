@@ -19,16 +19,20 @@ Serial.begin(115200);
 pinMode(4,OUTPUT);
 pinMode(2,OUTPUT);
 
+digitalWrite(4,HIGH);
+
+
+
   Core.startup(setMACAddress, NAME, server);
 
 }
 
 void trigger(){
-    digitalWrite(4,HIGH);
-    digitalWrite(2,HIGH);
-    delay(100);
     digitalWrite(4,LOW);
     digitalWrite(2,LOW);
+    delay(100);
+    digitalWrite(4,HIGH);
+    digitalWrite(2,HIGH);
     livecount++;
 
 
