@@ -173,7 +173,7 @@ if (WiFi.isConnected() == false){
 
 }
 
-if(millis() - watchdogtime > 5000)
+if(millis() - watchdogtime > 15000)
 {
   digitalWrite(5,LOW);
   delay(500);

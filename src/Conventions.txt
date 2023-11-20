@@ -55,4 +55,3 @@ D19 -   MISO
 D27 -   RST (5)
 
 D23 -   MOSI
-
