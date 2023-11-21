@@ -32,7 +32,7 @@
 #include <SPI.h>
 #include <MFRC522.h>
 
-#define NAME "RFID4"
+#define NAME "test"
 #define setMACAddress m_RFID4
 
 #pragma region mac
