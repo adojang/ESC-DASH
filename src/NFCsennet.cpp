@@ -2,7 +2,7 @@
 --------------------------------------------------------------------------
                           Tygervallei Escape Room Project
 --------------------------------------------------------------------------                          
-  Author: Adriaan van Wijk :) Hello
+  Author: Adriaan van Wijk
   Date: 16 October 2023
 
   This code is part of a multi-node project involving Escape Rooms in Tygervallei,
