@@ -11,9 +11,12 @@ Welcome to the ESP-DASH repository! This codebase is a dashboard designed for a 
 
 To get started with ESP-DASH, you will need an ESP32 microcontroller board, as well as Platformio and Visiual Studio Code.
 Once you have these components, you can clone the repository and upload the code to your board.
-
-You will also need to file for lib/_EscCore/config.h
-Use the provided template and save it as config.h (or just edit the library)
+###
+Installation Steps:
+- Install Visual Studio Code
+- Install PlatformIO as an Extension in Visual Studio Code
+- Add your local Wifi network under configexample.h and rename the file ```config.h```
+- Inside ```platformio.ini``` you will need to select which file you want to upload to the ESP32.
 
 ## Usage
 
