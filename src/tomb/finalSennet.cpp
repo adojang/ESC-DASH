@@ -23,13 +23,18 @@
   limitations under the License.
   --------------------------------------------------------------------------
 */
-#include <EscCore.h>
-#include <esp_task_wdt.h> // watchdog for doorlock mag recovery if it get stuck
 
+#include <Arduino.h>
+#include <EscCore.h>
+#include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
+#define WDT_TIMEOUT 15 // 15 seconds
+
+/* RFID */
+#include <SPI.h>
+#include <MFRC522.h>
 
 #define NAME "sennet"
-#define setMACAddress m_tomb_sennet
-#define WDT_TIMEOUT 10 // 10 seconds
+#define setMACAddress m_RFID4
 
 #pragma region mac
 // Control
@@ -75,66 +80,34 @@ dataPacket sData; // data to send
 dataPacket rData; // data to recieve
 
 /* Configuration and Setup */
-uint8_t reading = 0;
-int totalc;
-int pin17 = 0;
-int pin18 = 0;
-int pin19 = 0;
-int pin21 = 0;
-int pin22 = 0;
-int pin23 = 0;
-int pin25 = 0;
-int pin26 = 0;
-int pin13 = 0;
-int pin32 = 0;
-int pin33 = 0;
-int pin34 = 0;
-int pin35 = 0;
+
+#define RST_PIN         5 // ESP32 pin GPIO21
+#define SS_1_PIN        13         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 2
+#define SS_2_PIN        25 //EXCLUDED         // Configurable, take a unused pin, only HIGH/LOW required, must be different to SS 1
+#define SS_3_PIN        26 
+#define SS_4_PIN        27
+
+#define NR_OF_READERS   4
+byte ssPins[] = {SS_1_PIN, SS_2_PIN, SS_3_PIN, SS_4_PIN};
+MFRC522 mfrc522[NR_OF_READERS];   // Create MFRC522 instance.
+
+
+int total = 0;
+int shotcnt = 0;
 
 
 /* Functions */
 
-void openDrawer()
-{
 
-  //I do this because of some issue with the maglock.
-  //I suspect its a current issue, as the voltage drops significantly such that its unable to function while trying to do the work.
-  //This fix for this is to pulse it a few times, to build up power within the inductive coil, while allowing the source the time to replenish itself.
-
-  for (int i = 0; i< 3; i++)
-  {
-  digitalWrite(13,LOW);
-  delay(200);
-  digitalWrite(13,HIGH);
-  delay(100);
-  }
- 
-//  digitalWrite(13,LOW);
-//   delay(100);
-//   digitalWrite(13,HIGH);
-
-//   delay(100);
-
-//   digitalWrite(13,LOW);
-//   delay(100);
-//   digitalWrite(13,HIGH);
-
-//   delay(100);
-
-//   digitalWrite(13,LOW);
-//   delay(100);
-//   digitalWrite(13,HIGH);
-
-
-  // sData.origin = tomb_tangrum;
-  // sData.sensor = tomb_tangrum;
-  // sData.data = 1; // puzzle complete
-
-  // esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
-  // if (result == ESP_OK) { Serial.println("Sent with success");}
-  // else {Serial.println("Error sending the data");}
-
+void trigger(){
+    digitalWrite(4,LOW);
+    digitalWrite(2,HIGH);
+    delay(500);
+    digitalWrite(4,HIGH);
+    digitalWrite(2,LOW);
 }
+
+
 
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -146,8 +119,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
   memcpy(&rData, incomingData, sizeof(rData));
 
   if(rData.origin == masterserver && rData.sensor == tomb_sennet && rData.data == 1){
-    openDrawer();
-
+    trigger();
   }
 
 }
@@ -173,129 +145,91 @@ void registermac(uint8_t address[]){
   }
 }
 
-
-
 void statusUpdate(){
   sData.origin = tomb_sennet;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
-  esp_task_wdt_reset(); //restarts out after 10 seconds of not sending.
-}
-
-
-void readPin(uint8_t pin)
-{
-  for (int i = 0; i < 10; i++)
-  {
-    reading = reading + digitalRead(pin);
-    delay(10);
-  }
-  // Serial.println(reading);
-
-    if (reading > 8)
-    {
-      totalc++;
-
-    
-}
-reading = 0;
+  esp_task_wdt_reset();
 }
 
 
 void setup() {
   Serial.begin(115200);
-
-  #pragma region gpio
-  pinMode(17,INPUT_PULLDOWN);
-  pinMode(18,INPUT_PULLDOWN);
-  pinMode(19,INPUT_PULLDOWN);
-  pinMode(21,INPUT_PULLDOWN);
-
-  //HIGH outputs
-  pinMode(22,OUTPUT);
-  pinMode(23,OUTPUT);
-  pinMode(25,OUTPUT);
-  pinMode(26,OUTPUT);
-  pinMode(13,OUTPUT); // Relay Trigger Pin
-  digitalWrite(13,HIGH);
-  digitalWrite(22,HIGH);
-  digitalWrite(23,HIGH);
-  digitalWrite(25,HIGH);
-  digitalWrite(26,HIGH);
-
-  
-
-  #pragma endregion gpio
-
-  Core.startup(setMACAddress, NAME, server);
-  startespnow();
-  registermac(m_masterserver);
-  registermac(m_tombmaster);
-
   Serial.println("Configuring WDT...");
   esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
   esp_task_wdt_add(NULL); //add current thread to WDT watch
+  
+  Core.startup(setMACAddress, NAME, server);
+  startespnow();
+  registermac(m_masterserver);
+  registermac(m_atticmaster);
+
+  sData.origin = tomb_sennet;
+  sData.sensor = tomb_sennet;
 
 
-  sData.origin = tomb_tangrum;
-  sData.sensor = tomb_tangrum;
 
-  pinMode(2,OUTPUT);
-  digitalWrite(2,HIGH);
+  SPI.begin();        // Init SPI bus
+
+  for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+    mfrc522[reader].PCD_Init(ssPins[reader], RST_PIN); // Init each MFRC522 card
+    delay(10);
+    mfrc522[reader].PCD_SetRegisterBitMask(mfrc522[reader].RFCfgReg, (0x07<<4));
+    delay(10);
+    Serial.print(F("Reader "));
+    Serial.print(reader);
+    Serial.print(F(": "));
+    mfrc522[reader].PCD_DumpVersionToSerial();
+  }
+
+  Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
+  WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
 }
 
 
 
-unsigned long ttimer = millis();
-bool oneshotEnable = true;
-
-unsigned long ktimer = millis();
-int kcounter = 0;
 void loop() {
 
-  if (millis() - ktimer > 1000){
-    if (kcounter < 100)
-    {
-      //yo
-      ktimer = millis();
-      // kcounter += 1;
-      WebSerial.printf("Seconds Online: %d\n", millis()/1000);
-      
-      // WebSerial.printf("Number of Times Triggered: %d\n", kcounter);
-      // openDrawer();
-    }
-    if (kcounter > 100){
-    //   WebSerial.printf("PASS - TEST SUCCESFFULL\n");
-    // }
-  }
-  }
+        total = 0;
+ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+    // Look for new cards
 
+    if (mfrc522[reader].PICC_IsCardPresent()) total += 1;
 
-if (totalc == 4 && millis() - ttimer > 2000 && oneshotEnable == true){
-  ttimer = millis();
-  Serial.printf("Puzzle Complete! 4/4\n");
-  WebSerial.printf("Puzzle Complete! 4/4\n");
-  openDrawer();
-  oneshotEnable = false;
+    
+    if ((total == 4) && shotcnt == 0){
+        //ttimer = millis();
+        //oneshotEnable = false;
 
-  //I need to use a oneshot flag here to prevent it from triggering 10000000 in a row. Poor relay :(
+        Serial.printf("Puzzle Complete! 4/4\n");
+        trigger();
+        shotcnt = 1;
+
 }
 
-if(totalc < 4){
-  oneshotEnable = true; // This prevents tomb from triggering multiple times. Oneshots only.
-  //To trigger repeatedly, a piece has to be removed and replaced. Must read at least 12 or less for totalc :)
+//This arms the relay again so it will work.
+if(total == 3){
+    Serial.printf("RELAY ARMED\n", total);
+    shotcnt = 0;
+
 }
 
-//Readpin has a small delay which regulates this loop.
-totalc = 0;
-readPin(17);
-readPin(18);
-readPin(19);
-readPin(21);
-WebSerial.printf("Puzzle Pieces: %d/4\n", totalc);
-Serial.printf("Puzzle Pieces: %d/4\n", totalc);
+
+
+
+    
+    // if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
+    //   } 
+
+        MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
+        mfrc522[reader].PICC_HaltA();
+        mfrc522[reader].PCD_StopCrypto1();
+     
+  }
+
+  delay(5); // This delay might cause in problems when multiple readers are used...
 
 
   
