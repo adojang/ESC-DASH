@@ -11,7 +11,6 @@
   #include <ESPAsyncWebServer.h>
 #endif
 #include <ESPDash.h>
-
 #include <Adafruit_NeoPixel.h>
 
 #define PIN_WS2812B 13  // The ESP32 pin GPIO16 connected to WS2812B

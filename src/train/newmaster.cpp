@@ -48,6 +48,7 @@ uint8_t m_RFID3[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA6};
 uint8_t m_RFID4[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA7};
 uint8_t m_attic_clock2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA8};
 uint8_t m_attic_morse[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA9};
+uint8_t m_attic_light[] = {0x32, 0xAE, 0xA4, 0x07, 0x0E, 0xA0};
 
 
 // Tomb
@@ -150,6 +151,8 @@ Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
 Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
 Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4 Status", "idle");
 Card attic_bikelight(&dashboard, BUTTON_CARD, "Bike Light Override");
+Card attic_light(&dashboard, BUTTON_CARD, "Backup Bike Light Overide");
+
 
 /* Ancient Tomb */
 Card maindoor_override(&dashboard, BUTTON_CARD, "Open Main Door"); //momentary
@@ -402,6 +405,7 @@ void configDash(){
   attic_rfid3.setTab(&attic);
   attic_rfid4.setTab(&attic);
   attic_bikelight.setTab(&attic);
+  attic_light.setTab(&attic);
 
   /* Tomb */
   sennet_card.setTab(&tomb);
@@ -671,6 +675,20 @@ sData.data = 0;
 dashboard.sendUpdates();
 });
 
+attic_light.attachCallback([&](int value){
+
+WebSerial.println("BackUpBikeLight "+String((value == 1)?"true":"false"));
+attic_light.update(value);
+sData.origin = masterserver;
+sData.sensor = attic_bike;
+sData.data = value;
+
+esp_err_t result = esp_now_send(m_attic_light, (uint8_t *) &sData, sizeof(sData));
+if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
+sData.data = 0;
+
+dashboard.sendUpdates();
+});
 /* Tomb */
 
 /* 0xB0 - sennet table */
@@ -778,6 +796,7 @@ void setup() {
   registermac(m_RFID4);
   registermac(m_tomb_chalice);
   registermac(m_tomb_sennet);
+  registermac(m_attic_light);
 
   configDash();
   startButtonCB();
