@@ -38,6 +38,9 @@ uint8_t m_trainmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
 uint8_t m_tombmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
 uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
 
+uint8_t m_attic_light[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x04};
+
+
 // Attic
 uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
 uint8_t m_attic_bike[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA1};
@@ -49,7 +52,7 @@ uint8_t m_RFID3[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA6};
 uint8_t m_RFID4[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA7};
 uint8_t m_attic_clock2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA8};
 uint8_t m_attic_morse[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA9};
-uint8_t m_attic_light[] = {0x32, 0xAE, 0xA4, 0x07, 0x0E, 0xA0};
+
 
 
 // Tomb
@@ -84,8 +87,6 @@ Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 /* Functions */
 
  void sendData(){
-  sData.origin = m_attic_light;
-  sData.sensor = m_attic_light;
   esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
   // Serial.println(sData.data);
  }
@@ -135,7 +136,7 @@ void registermac(uint8_t address[]){
 }
 
 void statusUpdate(){
-  sData.origin = m_attic_light;
+  sData.origin = bikebackup;
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
 }

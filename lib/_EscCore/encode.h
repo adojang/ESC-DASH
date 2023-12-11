@@ -5,6 +5,8 @@
 #define trainmaster 0x01
 #define tombmaster 0x02
 #define atticmaster 0x03
+#define bikebackup 0x04
+
 
 
 //Attic
