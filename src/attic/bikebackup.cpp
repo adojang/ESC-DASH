@@ -143,10 +143,13 @@ void statusUpdate(){
 
 
 void setup() {
+  
   Serial.begin(115200);
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
+  
+  pinMode(PIN_WS2812B, OUTPUT);
   asynctimer.setInterval([]() {statusUpdate();},  1000);
 
 }
