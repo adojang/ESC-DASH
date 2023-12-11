@@ -2,6 +2,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 
+//hey man
+
 const char* ssid = "Mourning to Dancing";
 const char* password = "throughchristalone";
 const char* serverAddress = "http://dwell.local/post";
