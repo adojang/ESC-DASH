@@ -1,7 +1,7 @@
 /*
 --------------------------------------------------------------------------
                           Tygervallei Escape Room Project
---------------------------------------------------------------------------                          
+--------------------------------------------------------------------------
   Author: Adriaan van Wijk
   Date: 16 October 2023
 
@@ -24,7 +24,6 @@
   --------------------------------------------------------------------------
 */
 
-
 #include <EscCore.h>
 #include <Adafruit_NeoPixel.h>
 
@@ -38,8 +37,7 @@ uint8_t m_trainmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
 uint8_t m_tombmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
 uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
 
-uint8_t m_attic_light[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x04};
-
+uint8_t m_attic_light[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09};
 
 // Attic
 uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
@@ -52,8 +50,6 @@ uint8_t m_RFID3[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA6};
 uint8_t m_RFID4[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA7};
 uint8_t m_attic_clock2[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA8};
 uint8_t m_attic_morse[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA9};
-
-
 
 // Tomb
 uint8_t m_tomb_sennet[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xB0};
@@ -71,7 +67,7 @@ uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
 
 AsyncTimer asynctimer(35);
 AsyncWebServer server(80);
-ESPDash dashboard(&server,false);
+ESPDash dashboard(&server, false);
 esp_now_peer_info_t peerInfo;
 EscCore Core;
 
@@ -80,43 +76,51 @@ dataPacket rData; // data to recieve
 
 /* Configuration and Setup */
 
-#define PIN_WS2812B 13  // The ESP32 pin GPIO16 connected to WS2812B
-#define NUM_PIXELS 64   // The number of LEDs (pixels) on WS2812B LED strip
+#define PIN_WS2812B 13 // The ESP32 pin GPIO16 connected to WS2812B
+#define NUM_PIXELS 64  // The number of LEDs (pixels) on WS2812B LED strip
 Adafruit_NeoPixel ws2812b(NUM_PIXELS, PIN_WS2812B, NEO_GRB + NEO_KHZ800);
 
 /* Functions */
 
- void sendData(){
-  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+void sendData()
+{
+  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
   // Serial.println(sData.data);
- }
+}
 
-
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
 
   // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
 }
 
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
+{
   memcpy(&rData, incomingData, sizeof(rData));
 
   Serial.println("Data Recieved...");
-  if(rData.origin == masterserver && rData.data == 1)
+  if (rData.origin == masterserver && rData.data == true)
   {
-    digitalWrite(PIN_WS2812B,HIGH);
+    for (int pixel = 0; pixel < NUM_PIXELS; pixel++)
+    {                                                            // for each pixel
+      ws2812b.setPixelColor(pixel, ws2812b.Color(255, 255, 51)); // it only takes effect if pixels.show() is called
+    }
+    ws2812b.show();
+    Serial.println("ON");
   }
-  if(rData.origin == masterserver && rData.data == 0)
+  if (rData.origin == masterserver && rData.data == false)
   {
-    digitalWrite(PIN_WS2812B,LOW);
+    ws2812b.clear();
+    ws2812b.show();
+    Serial.println("OFF");
   }
   // Add your code here to do something with the data recieved
-
 }
 
-
-void startespnow(){ // Remeber to register mac addresses before sending data;
-  if (esp_now_init() != ESP_OK) {
+void startespnow()
+{ // Remeber to register mac addresses before sending data;
+  if (esp_now_init() != ESP_OK)
+  {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
@@ -124,7 +128,8 @@ void startespnow(){ // Remeber to register mac addresses before sending data;
   esp_now_register_recv_cb(OnDataRecv);
 }
 
-void registermac(uint8_t address[]){
+void registermac(uint8_t address[])
+{
   memcpy(peerInfo.peer_addr, address, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
@@ -135,29 +140,29 @@ void registermac(uint8_t address[]){
   }
 }
 
-void statusUpdate(){
+void statusUpdate()
+{
   sData.origin = bikebackup;
   sData.sensor = status_alive;
-  esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_err_t result = esp_now_send(m_masterserver, (uint8_t *)&sData, sizeof(sData));
 }
 
+void setup()
+{
 
-void setup() {
-  
   Serial.begin(115200);
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
-  
-  pinMode(PIN_WS2812B, OUTPUT);
-  asynctimer.setInterval([]() {statusUpdate();},  1000);
 
+  pinMode(PIN_WS2812B, OUTPUT);
+  asynctimer.setInterval([]()
+                         { statusUpdate(); },
+                         1000);
 }
 
-
 unsigned long ttime = millis();
-void loop() {
-
- 
+void loop()
+{
   asynctimer.handle();
 }
