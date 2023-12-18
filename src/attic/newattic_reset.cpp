@@ -142,6 +142,8 @@ void setup() {
   digitalWrite(5, HIGH);
 
 asynctimer.setInterval([]() {statusUpdate();},  1000);
+
+asynctimer.setInterval([]() {Serial.println("Running...");},  2000);
 }
 
 void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
@@ -174,8 +176,9 @@ if (WiFi.isConnected() == false){
 
 if(millis() - watchdogtime > 15000)
 {
+  Serial.println("RESET MAIN");
   digitalWrite(5,LOW);
-  delay(500);
+  delay(1500);
   digitalWrite(5,HIGH);
   watchdogtime = millis();
 }

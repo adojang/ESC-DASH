@@ -1,7 +1,7 @@
 /*
 --------------------------------------------------------------------------
                           Tygervallei Escape Room Project
---------------------------------------------------------------------------                          
+--------------------------------------------------------------------------
   Author: Adriaan van Wijk
   Date: 16 October 2023
 
@@ -24,7 +24,6 @@
   --------------------------------------------------------------------------
 */
 
-
 #include <EscCore.h>
 
 #define NAME "escape"
@@ -36,7 +35,8 @@ uint8_t m_masterserver[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x00};
 uint8_t m_trainmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x01};
 uint8_t m_tombmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x02};
 uint8_t m_atticmaster[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x03};
-uint8_t m_attic_light[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x04};
+
+uint8_t m_attic_light[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0x09};
 
 // Attic
 uint8_t m_attic_humanchain[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xA0};
@@ -66,7 +66,7 @@ uint8_t m_train_overrideButton[] = {0x32, 0xAE, 0xA4, 0x07, 0x0D, 0xC2};
 
 AsyncTimer asynctimer(35);
 AsyncWebServer server(80);
-ESPDash dashboard(&server,false);
+ESPDash dashboard(&server, false);
 esp_now_peer_info_t peerInfo;
 EscCore Core;
 
@@ -79,7 +79,6 @@ bool RFID1_reset = false;
 bool RFID2_reset = false;
 bool RFID3_reset = false;
 bool RFID4_reset = false;
-
 
 unsigned long emergencyTrigger = 0;
 bool RFID1_complete = false;
@@ -103,6 +102,7 @@ unsigned short tomb_status_timer = 0;
 unsigned short tomb_chalice_timer = 0;
 unsigned short tomb_tangrum_timer = 0;
 unsigned short tomb_sennet_timer = 0;
+unsigned short attic_bikebackup_timer = 0;
 
 const int defaultDoorTimeout = 2000;
 
@@ -110,8 +110,8 @@ const int defaultDoorTimeout = 2000;
 /* Cards */
 
 Card timesinceboot(&dashboard, ENERGY_CARD, "Time Since Boot", "min");
-Card restart_master(&dashboard, BUTTON_CARD, "Restart Server"); //momentary
-Card restart_attic(&dashboard, BUTTON_CARD, "Restart Attic"); //momentary
+Card restart_master(&dashboard, BUTTON_CARD, "Restart Server"); // momentary
+Card restart_attic(&dashboard, BUTTON_CARD, "Restart Attic");   // momentary
 
 /*Online Status*/
 Card attic_status(&dashboard, STATUS_CARD, "Attic", "warning");
@@ -126,25 +126,25 @@ Card tomb_status(&dashboard, STATUS_CARD, "Spooky Tomb", "warning");
 Card chalice_status(&dashboard, STATUS_CARD, "Chalice", "warning");
 Card tangrum_status(&dashboard, STATUS_CARD, "Tangrum Puzzle", "warning");
 Card sennet_status(&dashboard, STATUS_CARD, "Sennet Puzzle", "warning");
+Card backuplight_card_status(&dashboard, STATUS_CARD, "Backup Bike Light", "warning");
 
 Card errortest_card(&dashboard, BUTTON_CARD, "Error Testing - Crash Master"); // momentary
 
-
 /* Attic */
 Card humanchain_card(&dashboard, BUTTON_CARD, "Open Human Chain Door"); // momentary
-Card trim1(&dashboard, BUTTON_CARD, "Trim Clock Up"); //momentary
-Card trim2(&dashboard, BUTTON_CARD, "Trim Clock Down"); //momentary
+Card trim1(&dashboard, BUTTON_CARD, "Trim Clock Up");                   // momentary
+Card trim2(&dashboard, BUTTON_CARD, "Trim Clock Down");                 // momentary
 Card clockjoystick(&dashboard, JOYSTICK_CARD, "Clock Control", "lockY");
-Card reset_RFID(&dashboard, BUTTON_CARD, "Reset RFID Puzzle"); //momentary
+Card reset_RFID(&dashboard, BUTTON_CARD, "Reset RFID Puzzle"); // momentary
 
-Card lockdoor(&dashboard, BUTTON_CARD, "Lock RFID Door"); //momentary
+Card lockdoor(&dashboard, BUTTON_CARD, "Lock RFID Door"); // momentary
 
 Card lockdoor_status(&dashboard, STATUS_CARD, "Door Status", "success");
 Card DOORTOUCH(&dashboard, STATUS_CARD, "Human Chain", "idle");
-Card trigger_clock(&dashboard, BUTTON_CARD, "Manually Trigger Clock (UP)"); //momentary
-Card reset_clock(&dashboard, BUTTON_CARD, "Reset Clock Position (DOWN)"); //momentary
+Card trigger_clock(&dashboard, BUTTON_CARD, "Manually Trigger Clock (UP)"); // momentary
+Card reset_clock(&dashboard, BUTTON_CARD, "Reset Clock Position (DOWN)");   // momentary
 
-Card overide_rfid(&dashboard, BUTTON_CARD, "Override All RFID"); //momentary
+Card overide_rfid(&dashboard, BUTTON_CARD, "Override All RFID"); // momentary
 Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
 Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
 Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
@@ -152,204 +152,231 @@ Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4 Status", "idle");
 Card attic_bikelight(&dashboard, BUTTON_CARD, "Bike Light Override");
 Card attic_light(&dashboard, BUTTON_CARD, "Backup Bike Light Overide");
 
-
 /* Ancient Tomb */
-Card maindoor_override(&dashboard, BUTTON_CARD, "Open Main Door"); //momentary
-Card chalice_card(&dashboard, BUTTON_CARD, "Open Chalice Door"); //momentary
-Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Open Tomb"); //momentary
-Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); //momentary
+Card maindoor_override(&dashboard, BUTTON_CARD, "Open Main Door");   // momentary
+Card chalice_card(&dashboard, BUTTON_CARD, "Open Chalice Door");     // momentary
+Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Open Tomb");         // momentary
+Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); // momentary
 
 /* All Aboard (Train) */
-Card trainroomdoor_card(&dashboard, BUTTON_CARD, "Open Train Room Door"); //momentary
-Card thumbreader_card(&dashboard, BUTTON_CARD, "Overide Thumb Reader"); //momentary
-Card thumbreader_recalibrate_card(&dashboard, BUTTON_CARD, "Recalibrate Thumb Reader"); //momentary
+Card trainroomdoor_card(&dashboard, BUTTON_CARD, "Open Train Room Door");               // momentary
+Card thumbreader_card(&dashboard, BUTTON_CARD, "Overide Thumb Reader");                 // momentary
+Card thumbreader_recalibrate_card(&dashboard, BUTTON_CARD, "Recalibrate Thumb Reader"); // momentary
 
 /* Tabs */
 Tab attic(&dashboard, "Attic");
 Tab train(&dashboard, "All Aboard");
 Tab tomb(&dashboard, "Ancient Tomb");
 
-
 #pragma endregion Cards
 
 /* triggerDoor */
 /**
  * Opens the train room door and sends a message to the keypads controller to update the lights.
- * 
+ *
  * @param pin The pin number to which the door is connected.
  */
-void triggerDoor(int pin){
+void triggerDoor(int pin)
+{
   sData.origin = masterserver;
   sData.sensor = masterserver;
   sData.data = 1; // Door Open
-  esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *) &sData, sizeof(sData));
+  esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *)&sData, sizeof(sData));
 
   digitalWrite(pin, HIGH);
   WebSerial.println("Door Opened");
 
+  asynctimer.setTimeout([pin]()
+                        {
+                          sData.origin = masterserver;
+                          sData.sensor = masterserver;
+                          sData.data = 0; // Door closed
+                          esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *)&sData, sizeof(sData));
+                          digitalWrite(pin, LOW);
+                          WebSerial.println("Door Closed");
 
-  asynctimer.setTimeout([pin]() {
-      sData.origin = masterserver;
-      sData.sensor = masterserver;
-      sData.data = 0; // Door closed
-      esp_err_t result = esp_now_send(m_train_keypad, (uint8_t *) &sData, sizeof(sData));
-      digitalWrite(pin, LOW);
-      WebSerial.println("Door Closed");
-
-
-      // delay(50);
-    }, defaultDoorTimeout);
+                          // delay(50);
+                        },
+                        defaultDoorTimeout);
 }
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
+{
   // WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+}
+
+void handleStatus(unsigned short &checktimer, Card *checkCard)
+{
+  const int timeout = 5000;
+
+  if (checktimer == 0)
+  {
+    // Initialize Timer.
+    checkCard->update("Connected", "success");
+    checktimer = asynctimer.setTimeout([checkCard]()
+                                       { checkCard->update("Disconnected", "danger"); },
+                                       timeout);
   }
-
-
-void handleStatus(unsigned short & checktimer, Card* checkCard){
-        const int timeout = 5000;
-
-        if(checktimer == 0){
-          //Initialize Timer.
-          checkCard->update("Connected", "success");
-          checktimer = asynctimer.setTimeout([checkCard]() {
-          checkCard->update("Disconnected", "danger");
-          }, timeout);
-      } else{
-          //Cancel Old Timer, and set a new one.
-          asynctimer.cancel(checktimer);
-          checkCard->update("Connected", "success");
-          checktimer = asynctimer.setTimeout([checkCard]() {
-         checkCard->update("Disconnected", "danger");
-         }, timeout);
-    }
+  else
+  {
+    // Cancel Old Timer, and set a new one.
+    asynctimer.cancel(checktimer);
+    checkCard->update("Connected", "success");
+    checktimer = asynctimer.setTimeout([checkCard]()
+                                       { checkCard->update("Disconnected", "danger"); },
+                                       timeout);
   }
+}
 
-
-
-
-
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
+{
   memcpy(&rData, incomingData, sizeof(rData));
 
-
-
-
-  if(rData.origin == train_keypad && rData.sensor == train_keypad){
-  keypadtrigger = rData.data;
+  if (rData.origin == train_keypad && rData.sensor == train_keypad)
+  {
+    keypadtrigger = rData.data;
   }
 
-
-  if(rData.origin == atticmaster && rData.sensor == attic_humanchain)
+  if (rData.origin == atticmaster && rData.sensor == attic_humanchain)
   {
-    if(rData.data == 1) DOORTOUCH.update("Touching - Complete", "success");
-    if (rData.data != 1) DOORTOUCH.update("Not Touching - Incomplete", "danger");
-    
+    if (rData.data == 1)
+      DOORTOUCH.update("Touching - Complete", "success");
+    if (rData.data != 1)
+      DOORTOUCH.update("Not Touching - Incomplete", "danger");
+
     dashboard.sendUpdates();
   }
 
-
-  if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1)
+  if (rData.origin == attic_RFID1 && rData.sensor == attic_RFID1)
   {
-    if(RFID1_complete == false){
+    if (RFID1_complete == false)
+    {
       attic_rfid1.update("None", "warning");
       RFID1_reset = true;
-      }     
-    
-    if (rData.data == 100){
-      attic_rfid1.update("COMPLETE","success");
+    }
+
+    if (rData.data == 100)
+    {
+      attic_rfid1.update("COMPLETE", "success");
       RFID1_complete = true;
       RFID1_reset = false;
     }
     dashboard.sendUpdates();
   }
 
-  if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
+  if (rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
   {
-    if(RFID2_complete == false){
+    if (RFID2_complete == false)
+    {
       attic_rfid2.update(rData.data, "warning");
       RFID2_reset = false;
     }
 
-    if(rData.data == 0) {
+    if (rData.data == 0)
+    {
       attic_rfid2.update("None", "warning");
       RFID2_reset = true;
-      } 
+    }
 
-    if (rData.data == 100){
+    if (rData.data == 100)
+    {
       attic_rfid2.update("COMPLETE", "success");
       RFID2_complete = true;
     }
     dashboard.sendUpdates();
-}
+  }
 
-  if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3)
+  if (rData.origin == attic_RFID3 && rData.sensor == attic_RFID3)
   {
-    if(RFID3_complete == false){
+    if (RFID3_complete == false)
+    {
       attic_rfid3.update(rData.data, "warning");
       WebSerial.println("RFID3 complete false;");
       RFID3_reset = false;
-      }
+    }
 
-    if(rData.data == 0) {
+    if (rData.data == 0)
+    {
       attic_rfid3.update("None", "warning");
       WebSerial.println("rData.data = 0;");
       RFID3_reset = true;
-      } 
+    }
 
-    if (rData.data == 100){
-     attic_rfid3.update("COMPLETE", "success");
-     WebSerial.println("RFID3 Complete Success");
-    RFID3_complete = true;
+    if (rData.data == 100)
+    {
+      attic_rfid3.update("COMPLETE", "success");
+      WebSerial.println("RFID3 Complete Success");
+      RFID3_complete = true;
     }
     dashboard.sendUpdates();
   }
 
-  if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4)
+  if (rData.origin == attic_RFID4 && rData.sensor == attic_RFID4)
   {
-    if(RFID4_complete == false){
+    if (RFID4_complete == false)
+    {
       attic_rfid4.update(rData.data, "warning");
-      }
-    
-    if(rData.data == 1){ // This is equivalent to RESET because 1 is always active.
+    }
+
+    if (rData.data == 1)
+    { // This is equivalent to RESET because 1 is always active.
       RFID4_reset = true;
-      } else{
-         RFID4_reset = false;
-      }
+    }
+    else
+    {
+      RFID4_reset = false;
+    }
 
-    if(rData.data == 0) {attic_rfid4.update("None", "warning");} 
+    if (rData.data == 0)
+    {
+      attic_rfid4.update("None", "warning");
+    }
 
-    if (rData.data == 100){
+    if (rData.data == 100)
+    {
       attic_rfid4.update("COMPLETE", "success");
       RFID4_complete = true;
     }
     dashboard.sendUpdates();
   }
 
-
   /* Status Updates */
 
-  //This checks every 5 seconds to see if we've recieved a message from a controller.
-  // If we haven't it'll display an offline message. Useful for debugging quickly.
-  if(rData.origin == atticmaster && rData.sensor == status_alive) handleStatus(attic_status_timer, &attic_status);
-  if(rData.origin == attic_clock && rData.sensor == status_alive) handleStatus(clock_status_timer, &clock_status);
-  if(rData.origin == attic_bike && rData.sensor == status_alive)  handleStatus(bike_status_timer, &bike_status);
-  if(rData.origin == attic_RFID1 && rData.sensor == status_alive) handleStatus(RFID1_status_timer, &RFID1_status);
-  if(rData.origin == attic_RFID2 && rData.sensor == status_alive) handleStatus(RFID2_status_timer, &RFID2_status);
-  if(rData.origin == attic_RFID3 && rData.sensor == status_alive) handleStatus(RFID3_status_timer, &RFID3_status);
-  if(rData.origin == attic_RFID4 && rData.sensor == status_alive) handleStatus(RFID4_status_timer, &RFID4_status);
-  if(rData.origin == train_thumb && rData.sensor == status_alive) handleStatus(thumbreader_status_timer, &thumbreader_status);
-  if(rData.origin == tombmaster && rData.sensor == status_alive) handleStatus(tomb_status_timer, &tomb_status);
-  if(rData.origin == tomb_chalice && rData.sensor == status_alive) handleStatus(tomb_chalice_timer, &chalice_status);
-  if(rData.origin == tomb_tangrum && rData.sensor == status_alive) handleStatus(tomb_tangrum_timer, &tangrum_status);
-  if(rData.origin == tomb_sennet && rData.sensor == status_alive) handleStatus(tomb_sennet_timer, &sennet_status);
+  // This checks every 5 seconds to see if we've recieved a message from a controller.
+  //  If we haven't it'll display an offline message. Useful for debugging quickly.
+  if (rData.origin == atticmaster && rData.sensor == status_alive)
+    handleStatus(attic_status_timer, &attic_status);
+  if (rData.origin == attic_clock && rData.sensor == status_alive)
+    handleStatus(clock_status_timer, &clock_status);
+  if (rData.origin == attic_bike && rData.sensor == status_alive)
+    handleStatus(bike_status_timer, &bike_status);
+  if (rData.origin == attic_RFID1 && rData.sensor == status_alive)
+    handleStatus(RFID1_status_timer, &RFID1_status);
+  if (rData.origin == attic_RFID2 && rData.sensor == status_alive)
+    handleStatus(RFID2_status_timer, &RFID2_status);
+  if (rData.origin == attic_RFID3 && rData.sensor == status_alive)
+    handleStatus(RFID3_status_timer, &RFID3_status);
+  if (rData.origin == attic_RFID4 && rData.sensor == status_alive)
+    handleStatus(RFID4_status_timer, &RFID4_status);
+  if (rData.origin == train_thumb && rData.sensor == status_alive)
+    handleStatus(thumbreader_status_timer, &thumbreader_status);
+  if (rData.origin == tombmaster && rData.sensor == status_alive)
+    handleStatus(tomb_status_timer, &tomb_status);
+  if (rData.origin == tomb_chalice && rData.sensor == status_alive)
+    handleStatus(tomb_chalice_timer, &chalice_status);
+  if (rData.origin == tomb_tangrum && rData.sensor == status_alive)
+    handleStatus(tomb_tangrum_timer, &tangrum_status);
+  if (rData.origin == tomb_sennet && rData.sensor == status_alive)
+    handleStatus(tomb_sennet_timer, &sennet_status);
 
+      if (rData.origin == bikebackup && rData.sensor == status_alive)
+    handleStatus(attic_bikebackup_timer, &backuplight_card_status);
 }
 
-
-
-void startespnow(){ // Remeber to register mac addresses before sending data;
-  if (esp_now_init() != ESP_OK) {
+void startespnow()
+{ // Remeber to register mac addresses before sending data;
+  if (esp_now_init() != ESP_OK)
+  {
     WebSerial.println("Error initializing ESP-NOW");
     return;
   }
@@ -357,7 +384,8 @@ void startespnow(){ // Remeber to register mac addresses before sending data;
   esp_now_register_recv_cb(OnDataRecv);
 }
 
-void registermac(uint8_t address[]){
+void registermac(uint8_t address[])
+{
   memcpy(peerInfo.peer_addr, address, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
@@ -368,7 +396,8 @@ void registermac(uint8_t address[]){
   }
 }
 
-void configDash(){
+void configDash()
+{
   dashboard.setTitle("Escape Room Master Control");
   sData.origin = 0x00;
 
@@ -385,6 +414,7 @@ void configDash(){
   chalice_status.update("Disconnected", "danger");
   tangrum_status.update("Disconnected", "danger");
   sennet_status.update("Disconnected", "danger");
+  backuplight_card_status.update("Disconnected", "danger");
 
   /* Attic */
   humanchain_card.setTab(&attic);
@@ -411,102 +441,110 @@ void configDash(){
   chalice_card.setTab(&tomb);
   maindoor_override.setTab(&tomb);
   tangrumtomb_card.setTab(&tomb);
-  sennet_card.setSize(6,6,6,6,6,6);
-  chalice_card.setSize(6,6,6,6,6,6);
-  tangrumtomb_card.setSize(6,6,6,6,6,6);
-  maindoor_override.setSize(6,6,6,6,6,6);
-  
+  sennet_card.setSize(6, 6, 6, 6, 6, 6);
+  chalice_card.setSize(6, 6, 6, 6, 6, 6);
+  tangrumtomb_card.setSize(6, 6, 6, 6, 6, 6);
+  maindoor_override.setSize(6, 6, 6, 6, 6, 6);
+
   /* Train */
   thumbreader_card.setTab(&train);
   thumbreader_recalibrate_card.setTab(&train);
   trainroomdoor_card.setTab(&train);
-  thumbreader_card.setSize(6,6,6,6,6,6);
-  thumbreader_recalibrate_card.setSize(6,6,6,6,6,6);
-  trainroomdoor_card.setSize(6,6,6,6,6,6);
+  thumbreader_card.setSize(6, 6, 6, 6, 6, 6);
+  thumbreader_recalibrate_card.setSize(6, 6, 6, 6, 6, 6);
+  trainroomdoor_card.setSize(6, 6, 6, 6, 6, 6);
 }
 
-
-//this function will take in a card type, display a check mark, then after 3000s display the normal disabled mark.
-void buttonTimeout(Card* cardptr, int timeout = defaultDoorTimeout){
+// this function will take in a card type, display a check mark, then after 3000s display the normal disabled mark.
+void buttonTimeout(Card *cardptr, int timeout = defaultDoorTimeout)
+{
   cardptr->update(1);
-  asynctimer.setTimeout([cardptr]() {
+  asynctimer.setTimeout([cardptr]()
+                        {
     cardptr->update(0);
-    dashboard.sendUpdates();
-  }, timeout);
+    dashboard.sendUpdates(); },
+                        timeout);
   dashboard.sendUpdates();
 }
 
-void startButtonCB(){
+void startButtonCB()
+{
 
-restart_master.attachCallback([](int value){
+  restart_master.attachCallback([](int value)
+                                {
 buttonTimeout(&restart_master);
 WebSerial.printf("Master Restart Triggered\n");
 delay(1000); // to allow time for the webserial message to reach webserial console.
-ESP.restart();
-});
+ESP.restart(); });
 
-/* Train */
+  /* Train */
 
-  trainroomdoor_card.attachCallback([](int value){
+  trainroomdoor_card.attachCallback([](int value)
+                                    {
   buttonTimeout(&trainroomdoor_card);
   WebSerial.println("Train Room Triggered via web");
-  triggerDoor(5);  
-});
+  triggerDoor(5); });
 
-thumbreader_card.attachCallback([](int value){
-buttonTimeout(&thumbreader_card);;
-  WebSerial.println("Thumbreader Triggered via web");
-  sData.origin = masterserver;
-  sData.sensor = masterserver;
-  sData.data = 1;
-  esp_err_t result = esp_now_send(m_train_thumb, (uint8_t *) &sData, sizeof(sData));
-  if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
-  sData.data = 0;
+  thumbreader_card.attachCallback([](int value)
+                                  {
+                                    buttonTimeout(&thumbreader_card);
+                                    ;
+                                    WebSerial.println("Thumbreader Triggered via web");
+                                    sData.origin = masterserver;
+                                    sData.sensor = masterserver;
+                                    sData.data = 1;
+                                    esp_err_t result = esp_now_send(m_train_thumb, (uint8_t *)&sData, sizeof(sData));
+                                    if (result != ESP_OK)
+                                    {
+                                      WebSerial.println("Error. Probably not Registerd.");
+                                    }
+                                    sData.data = 0;
+                                  });
 
-});
+  thumbreader_recalibrate_card.attachCallback([](int value)
+                                              {
+                                                buttonTimeout(&thumbreader_recalibrate_card);
+                                                WebSerial.println("Thumbreader Recallibrated via web");
+                                                sData.origin = masterserver;
+                                                sData.sensor = masterserver;
+                                                sData.data = 66;
+                                                esp_err_t result = esp_now_send(m_train_thumb, (uint8_t *)&sData, sizeof(sData));
+                                                if (result != ESP_OK)
+                                                {
+                                                  WebSerial.println("Error. Probably not Registerd.");
+                                                }
+                                                sData.data = 0;
+                                              });
 
+  /* Attic */
 
-thumbreader_recalibrate_card.attachCallback([](int value){
-buttonTimeout(&thumbreader_recalibrate_card);
-  WebSerial.println("Thumbreader Recallibrated via web");
-  sData.origin = masterserver;
-  sData.sensor = masterserver;
-  sData.data = 66;
-  esp_err_t result = esp_now_send(m_train_thumb, (uint8_t *) &sData, sizeof(sData));
-  if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
-  sData.data = 0;
-
-});
-
-
-/* Attic */
-
-restart_attic.attachCallback([](int value){
+  restart_attic.attachCallback([](int value)
+                               {
 buttonTimeout(&restart_attic);
 WebSerial.printf("Attic Restart Triggered\n");
 sData.data = 66;
 esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-sData.data = 0;
-});
+sData.data = 0; });
 
-trim1.attachCallback([](int value){
+  trim1.attachCallback([](int value)
+                       {
 buttonTimeout(&trim1);
 WebSerial.printf("Attic Clock Trim 1 Triggered\n");
 
 sData.data = 10;
 esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
-sData.data = 0;
-});
+sData.data = 0; });
 
-trim2.attachCallback([](int value){
+  trim2.attachCallback([](int value)
+                       {
 buttonTimeout(&trim2);
 WebSerial.printf("Attic Clock Trim 2 Triggered\n");
 sData.data = 20;
 esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
-sData.data = 0;
-});
+sData.data = 0; });
 
-clockjoystick.attachCallback([&](int8_t x, int8_t y){
+  clockjoystick.attachCallback([&](int8_t x, int8_t y)
+                               {
   sData.origin = masterserver;
   sData.sensor = attic_clock;
   sData.data = y;
@@ -515,48 +553,44 @@ clockjoystick.attachCallback([&](int8_t x, int8_t y){
   if((millis() - time250) >= 100){
     esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
     time250 = millis();
-  }
-});
+  } });
 
+  reset_RFID.attachCallback([](int value) { // Reset the RFID Values by restarting the RFID readers.
+    buttonTimeout(&reset_RFID);
+    WebSerial.printf("RFID RESET-ALL triggered\n");
 
-reset_RFID.attachCallback([](int value){ //Reset the RFID Values by restarting the RFID readers.
-buttonTimeout(&reset_RFID);
-WebSerial.printf("RFID RESET-ALL triggered\n");
+    // Write TEMP so you can see its being reset:
+    attic_rfid1.update("Resetting...", "danger");
+    attic_rfid2.update("Resetting...", "danger");
+    attic_rfid3.update("Resetting...", "danger");
+    attic_rfid4.update("Resetting...", "danger");
 
-//Write TEMP so you can see its being reset:
-attic_rfid1.update("Resetting...", "danger");
-attic_rfid2.update("Resetting...", "danger");
-attic_rfid3.update("Resetting...", "danger");
-attic_rfid4.update("Resetting...", "danger");
+    checkrfidstuck = true;
 
-checkrfidstuck = true;
+    RFID1_complete = false;
+    RFID2_complete = false;
+    RFID3_complete = false;
+    RFID4_complete = false;
 
+    sData.origin = masterserver;
+    sData.sensor = masterserver;
+    sData.data = 77;
 
+    // Reset Attic
+    esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
 
-RFID1_complete = false;
-RFID2_complete = false;
-RFID3_complete = false;
-RFID4_complete = false;
+    // Restart RFID
+    esp_now_send(m_RFID1, (uint8_t *)&sData, sizeof(sData));
+    esp_now_send(m_RFID2, (uint8_t *)&sData, sizeof(sData));
+    esp_now_send(m_RFID3, (uint8_t *)&sData, sizeof(sData));
+    esp_now_send(m_RFID4, (uint8_t *)&sData, sizeof(sData));
 
-sData.origin = masterserver;
-sData.sensor = masterserver;
-sData.data = 77;
+    dashboard.sendUpdates();
 
-//Reset Attic
-esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+  });
 
-//Restart RFID
-esp_now_send(m_RFID1, (uint8_t *) &sData, sizeof(sData));
-esp_now_send(m_RFID2, (uint8_t *) &sData, sizeof(sData));
-esp_now_send(m_RFID3, (uint8_t *) &sData, sizeof(sData));
-esp_now_send(m_RFID4, (uint8_t *) &sData, sizeof(sData));
-
-dashboard.sendUpdates();
-
-
-});
-
-lockdoor.attachCallback([](int value){
+  lockdoor.attachCallback([](int value)
+                          {
 lockdoor.update(value);
 if (value == 1) {
   rfiddoorlock = true;
@@ -576,27 +610,25 @@ if (value == 0) {
   sData.data = 0;
   }
 
-  dashboard.sendUpdates();
-});
+  dashboard.sendUpdates(); });
 
+  overide_rfid.attachCallback([](int value)
+                              {
+                                buttonTimeout(&overide_rfid);
+                                WebSerial.printf("RFID Override\n");
 
-overide_rfid.attachCallback([](int value){
-buttonTimeout(&overide_rfid);
-WebSerial.printf("RFID Override\n");
+                                // Send override data to attic.
+                                sData.origin = masterserver;
+                                sData.sensor = masterserver;
+                                sData.data = 50;
+                                esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
+                                sData.data = 0;
 
-//Send override data to attic.
-sData.origin = masterserver;
-sData.sensor = masterserver; 
-sData.data = 50;
-esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-sData.data = 0;
-  
-dashboard.sendUpdates();
+                                dashboard.sendUpdates();
+                              });
 
-
-});
-
-trigger_clock.attachCallback([](int value){
+  trigger_clock.attachCallback([](int value)
+                               {
 buttonTimeout(&trigger_clock);
 WebSerial.printf("Clock Manually Triggered\n");
 
@@ -606,60 +638,58 @@ sData.data = 42;
 esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
 sData.data = 0;
   
-dashboard.sendUpdates();
-});
+dashboard.sendUpdates(); });
 
-reset_clock.attachCallback([](int value){
-buttonTimeout(&reset_clock);
-WebSerial.printf("Clock Returned to Starting Position\n");
+  reset_clock.attachCallback([](int value)
+                             {
+                               buttonTimeout(&reset_clock);
+                               WebSerial.printf("Clock Returned to Starting Position\n");
 
-sData.origin = masterserver;
-sData.sensor = masterserver; 
-sData.data = 55;
-esp_err_t result = esp_now_send(m_clock, (uint8_t *) &sData, sizeof(sData));
-sData.data = 0;
-  
-dashboard.sendUpdates();
+                               sData.origin = masterserver;
+                               sData.sensor = masterserver;
+                               sData.data = 55;
+                               esp_err_t result = esp_now_send(m_clock, (uint8_t *)&sData, sizeof(sData));
+                               sData.data = 0;
 
+                               dashboard.sendUpdates();
+                             });
 
-});
+  errortest_card.attachCallback([](int value)
+                                {
+                                  buttonTimeout(&errortest_card);
+                                  WebSerial.printf("<<<<CRASH Master!>>>\n");
 
+                                  // Send Messages to Atticmaster and TombMaster to CRASH spectacularly.
+                                  sData.origin = masterserver;
+                                  sData.sensor = masterserver;
+                                  sData.data = 999;
+                                  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
+                                  esp_err_t result2 = esp_now_send(m_tombmaster, (uint8_t *)&sData, sizeof(sData));
 
-errortest_card.attachCallback([](int value){
-buttonTimeout(&errortest_card);
-WebSerial.printf("<<<<CRASH Master!>>>\n");
+                                  while (true)
+                                  {
+                                    delay(2000);
+                                    WebSerial.println("Looping Infinite...");
+                                  }
+                                });
 
-//Send Messages to Atticmaster and TombMaster to CRASH spectacularly.
-sData.origin = masterserver;
-sData.sensor = masterserver; 
-sData.data = 999;
-esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-esp_err_t result2 = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
+  humanchain_card.attachCallback([](int value)
+                                 {
+                                   // humanchain_card.update(1);
+                                   buttonTimeout(&humanchain_card);
+                                   WebSerial.printf("Attic Door Opened\n");
+                                   sData.sensor = attic_humanchain;
+                                   sData.data = 1;
+                                   esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
+                                   if (result != ESP_OK)
+                                   {
+                                     WebSerial.println("Error. Probably not Registerd.");
+                                   }
+                                   sData.data = 0;
+                                 });
 
-while(true)
-{
-  delay(2000);
-   WebSerial.println("Looping Infinite...");
-}
-  
-});
-
-
-
-humanchain_card.attachCallback([](int value){
-// humanchain_card.update(1);
-buttonTimeout(&humanchain_card);
-WebSerial.printf("Attic Door Opened\n");
-sData.sensor = attic_humanchain; 
-sData.data = 1;
-esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
-sData.data = 0;
-  
-});
-
-
-attic_bikelight.attachCallback([&](int value){
+  attic_bikelight.attachCallback([&](int value)
+                                 {
 
 WebSerial.println("BikeLight "+String((value == 1)?"true":"false"));
 attic_bikelight.update(value);
@@ -671,10 +701,10 @@ esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData)
 if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
 sData.data = 0;
 
-dashboard.sendUpdates();
-});
+dashboard.sendUpdates(); });
 
-attic_light.attachCallback([&](int value){
+  attic_light.attachCallback([&](int value)
+                             {
 
 WebSerial.println("BackUpBikeLight "+String((value == 1)?"true":"false"));
 attic_light.update(value);
@@ -686,68 +716,77 @@ esp_err_t result = esp_now_send(m_attic_light, (uint8_t *) &sData, sizeof(sData)
 if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
 sData.data = 0;
 
-dashboard.sendUpdates();
-});
+dashboard.sendUpdates(); });
 
+  /* Tomb */
 
-/* Tomb */
+  /* 0xB0 - sennet table */
+  sennet_card.attachCallback([](int value)
+                             {
+                               buttonTimeout(&sennet_card);
+                               WebSerial.printf("Sennet Table Triggered\n");
+                               sData.sensor = tomb_sennet;
+                               sData.data = 1;
+                               esp_err_t result = esp_now_send(m_tomb_sennet, (uint8_t *)&sData, sizeof(sData));
+                               if (result != ESP_OK)
+                               {
+                                 WebSerial.println("Error. Probably not Registerd.");
+                               }
+                               sData.data = 0;
+                             });
 
-/* 0xB0 - sennet table */
-sennet_card.attachCallback([](int value){
-buttonTimeout(&sennet_card);
-WebSerial.printf("Sennet Table Triggered\n");
-sData.sensor = tomb_sennet; 
-sData.data = 1;
-esp_err_t result = esp_now_send(m_tomb_sennet, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
-sData.data = 0;
+  /* 0xB1 - chalicessensor */
+  chalice_card.attachCallback([](int value)
+                              {
+                                buttonTimeout(&chalice_card);
+                                WebSerial.printf("Chalice Sensor Triggered\n");
+                                sData.origin = masterserver;
+                                sData.sensor = tomb_chalice;
+                                sData.data = 1;
+                                esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *)&sData, sizeof(sData));
+                                if (result != ESP_OK)
+                                {
+                                  WebSerial.println("Error. Probably not Registerd.");
+                                }
+                                sData.data = 0;
+                              });
 
-});
+  /* 0xB2 - ringreader */
+  // Not Implemented.
 
-/* 0xB1 - chalicessensor */
-chalice_card.attachCallback([](int value){
-buttonTimeout(&chalice_card);
-WebSerial.printf("Chalice Sensor Triggered\n");
-sData.origin = masterserver;
-sData.sensor = tomb_chalice; 
-sData.data = 1;
-esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
-sData.data = 0;
+  /* 0xB3 - tangrumtomb */
+  tangrumtomb_card.attachCallback([](int value)
+                                  {
+                                    buttonTimeout(&tangrumtomb_card);
+                                    WebSerial.printf("Tangram Tomb Triggered\n");
+                                    sData.origin = masterserver;
+                                    sData.sensor = tomb_tangrum;
+                                    sData.data = 1;
+                                    esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *)&sData, sizeof(sData));
+                                    if (result != ESP_OK)
+                                    {
+                                      WebSerial.println("Error. Probably not Registerd.");
+                                    }
+                                    sData.data = 0;
+                                  });
+  /* Main Door Override*/
 
-});
+  maindoor_override.attachCallback([](int value)
+                                   {
+                                     buttonTimeout(&maindoor_override);
+                                     WebSerial.printf("Main Door Override\n");
+                                     sData.origin = masterserver;
+                                     sData.sensor = masterserver;
+                                     sData.data = 111;
+                                     esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *)&sData, sizeof(sData));
+                                     if (result != ESP_OK)
+                                     {
+                                       WebSerial.println("Error. Probably not Registerd.");
+                                     }
+                                     sData.data = 0;
+                                   });
 
-/* 0xB2 - ringreader */
-//Not Implemented.
-
-/* 0xB3 - tangrumtomb */
-tangrumtomb_card.attachCallback([](int value){
-buttonTimeout(&tangrumtomb_card);
-WebSerial.printf("Tangram Tomb Triggered\n");
-sData.origin = masterserver;
-sData.sensor = tomb_tangrum; 
-sData.data = 1;
-esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
-sData.data = 0;
-
-});
-/* Main Door Override*/
-
-maindoor_override.attachCallback([](int value){
-buttonTimeout(&maindoor_override);
-WebSerial.printf("Main Door Override\n");
-sData.origin = masterserver;
-sData.sensor = masterserver; 
-sData.data = 111;
-esp_err_t result = esp_now_send(m_tombmaster, (uint8_t *) &sData, sizeof(sData));
-if (result != ESP_OK) { WebSerial.println("Error. Probably not Registerd.");}
-sData.data = 0;
-
-});
-
-
-  //Initialize Statues'
+  // Initialize Statues'
   lockdoor_status.update("Door Unlocked", "success");
   attic_rfid1.update("Unknown", "danger");
   attic_rfid2.update("Unknown", "danger");
@@ -757,33 +796,37 @@ sData.data = 0;
   dashboard.sendUpdates();
 }
 
-void updateTime(){
+void updateTime()
+{
 
   int seconds = millis() / 1000;
   int minutes = seconds / 60;
   int hours = minutes / 60;
 
-
-
-  if (seconds < 60){
+  if (seconds < 60)
+  {
     timesinceboot.update(seconds, "seconds");
-
-  } else{
-    if(minutes < 60){
-    String timeA = String(minutes) + ":" + String(seconds % 60);
-    timesinceboot.update(timeA, "min");
-
-    } else {
+  }
+  else
+  {
+    if (minutes < 60)
+    {
+      String timeA = String(minutes) + ":" + String(seconds % 60);
+      timesinceboot.update(timeA, "min");
+    }
+    else
+    {
       String timeB = String(hours) + ":" + String(minutes % 60) + ":" + String(seconds % 60);
-        timesinceboot.update(timeB, "sec");
+      timesinceboot.update(timeB, "sec");
     }
   }
   dashboard.sendUpdates();
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200); // Not used, kept for redundancy.
-  
+
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_clock);
@@ -801,122 +844,135 @@ void setup() {
 
   configDash();
   startButtonCB();
-  
 
-  #pragma region gpio
-  //Signaling LED
+#pragma region gpio
+  // Signaling LED
   pinMode(2, OUTPUT);
-  digitalWrite(2,LOW);
+  digitalWrite(2, LOW);
 
-  pinMode(25,OUTPUT);  //Emergency Buttons
-  digitalWrite(25,HIGH); // 25 is trigger pin HIGH. Source.
-  pinMode(34,INPUT); // Pulldown input with 110nf cap and a resistor.
+  pinMode(25, OUTPUT);    // Emergency Buttons
+  digitalWrite(25, HIGH); // 25 is trigger pin HIGH. Source.
+  pinMode(34, INPUT);     // Pulldown input with 110nf cap and a resistor.
 
   pinMode(23, OUTPUT);
-  digitalWrite(23,LOW); // 23 is GND makes a PULLDOWN resistor config.
+  digitalWrite(23, LOW); // 23 is GND makes a PULLDOWN resistor config.
 
   // Enable relay
   pinMode(5, OUTPUT);
   digitalWrite(5, LOW);
 
+#pragma endregion gpio
 
+  emergencyTrigger = millis();
 
-  #pragma endregion gpio
+  asynctimer.setInterval([]()
+                         { updateTime(); },
+                         1000);
 
+  // RFID checks can be implemented better. This is a solution for now but requires some time and forethought.
 
+  rData.data = 0;
+  rData.origin = atticmaster;
+  rData.sensor = atticmaster;
 
-emergencyTrigger = millis();
+  // Request Data from the RFID controller.
 
-  asynctimer.setInterval([]() {
-     updateTime();
-    }, 1000);
-
-
-  //RFID checks can be implemented better. This is a solution for now but requires some time and forethought.
-
-    rData.data = 0;
-    rData.origin = atticmaster;
-    rData.sensor = atticmaster;
-
-    //Request Data from the RFID controller.
-
-    esp_now_send(m_RFID1, (uint8_t *) &rData, sizeof(rData));
-    esp_now_send(m_RFID2, (uint8_t *) &rData, sizeof(rData));
-    esp_now_send(m_RFID3, (uint8_t *) &rData, sizeof(rData));
-    esp_now_send(m_RFID4, (uint8_t *) &rData, sizeof(rData));
-    rData.origin = masterserver;
-    rData.sensor = masterserver;
-
+  esp_now_send(m_RFID1, (uint8_t *)&rData, sizeof(rData));
+  esp_now_send(m_RFID2, (uint8_t *)&rData, sizeof(rData));
+  esp_now_send(m_RFID3, (uint8_t *)&rData, sizeof(rData));
+  esp_now_send(m_RFID4, (uint8_t *)&rData, sizeof(rData));
+  rData.origin = masterserver;
+  rData.sensor = masterserver;
 }
 
 unsigned long rtime = millis();
 
-void loop() {
+void loop()
+{
 
+  // This function is only enabled when the 'RESET RFID' button is clicked.
 
-//This function is only enabled when the 'RESET RFID' button is clicked.
-
-if(checkrfidstuck == true && (millis() - rtime > 5000)){
-  rtime = millis();
-  //Do a check every second to see if any of them are false.
-  //After 5sec, reset the faulty ones again.
-  int allreset = 0;
-  WebSerial.println("Check if RFID STUCK Run");
-  WebSerial.printf("%d,%d,%d,%d\n", RFID1_reset,RFID2_reset,RFID3_reset,RFID4_reset);
-  //RFIDx_reset is set to true if the response from an RFID is that there are none present.
-  //This will occur after a restart
-
-
-  //IF not in the 'I was just reset' state, send the restart command again to try and get it there.
-
-  if(RFID1_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID1, (uint8_t *) &sData, sizeof(sData));}
-  
-  if(RFID2_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID2, (uint8_t *) &sData, sizeof(sData));}
-  if(RFID3_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID3, (uint8_t *) &sData, sizeof(sData));}
-  if(RFID4_reset) {allreset = allreset + 1;} else {esp_now_send(m_RFID4, (uint8_t *) &sData, sizeof(sData));}
-
-
-  //If we get the 'I was just reset and have just started up' msg from all RFID, then disable this check.
-
-  if(allreset == 4) checkrfidstuck = false;
-}
-
-//Emergency Escape Button
-
-/* REMOVE AFTER HARDWARE MOD */
-
-
-if ((analogRead(34) > 3500) && ((millis() - emergencyTrigger) >= 1000))
+  if (checkrfidstuck == true && (millis() - rtime > 5000))
   {
-  WebSerial.println(analogRead(34)); //
-  emergencyTrigger = millis();
-  WebSerial.println("Door Triggered");
-  triggerDoor(5);
-  // delay(50); // I'm gonna be removing thehse.
-}
+    rtime = millis();
+    // Do a check every second to see if any of them are false.
+    // After 5sec, reset the faulty ones again.
+    int allreset = 0;
+    WebSerial.println("Check if RFID STUCK Run");
+    WebSerial.printf("%d,%d,%d,%d\n", RFID1_reset, RFID2_reset, RFID3_reset, RFID4_reset);
+    // RFIDx_reset is set to true if the response from an RFID is that there are none present.
+    // This will occur after a restart
 
+    // IF not in the 'I was just reset' state, send the restart command again to try and get it there.
 
-/* REMOVE AFTER HARDWARE MOD */
+    if (RFID1_reset)
+    {
+      allreset = allreset + 1;
+    }
+    else
+    {
+      esp_now_send(m_RFID1, (uint8_t *)&sData, sizeof(sData));
+    }
 
+    if (RFID2_reset)
+    {
+      allreset = allreset + 1;
+    }
+    else
+    {
+      esp_now_send(m_RFID2, (uint8_t *)&sData, sizeof(sData));
+    }
+    if (RFID3_reset)
+    {
+      allreset = allreset + 1;
+    }
+    else
+    {
+      esp_now_send(m_RFID3, (uint8_t *)&sData, sizeof(sData));
+    }
+    if (RFID4_reset)
+    {
+      allreset = allreset + 1;
+    }
+    else
+    {
+      esp_now_send(m_RFID4, (uint8_t *)&sData, sizeof(sData));
+    }
 
+    // If we get the 'I was just reset and have just started up' msg from all RFID, then disable this check.
 
+    if (allreset == 4)
+      checkrfidstuck = false;
+  }
 
+  // Emergency Escape Button
 
+  /* REMOVE AFTER HARDWARE MOD */
 
-if (keypadtrigger == 1) // Unlock the Door Steady State
+  if ((analogRead(34) > 3500) && ((millis() - emergencyTrigger) >= 1000))
   {
-  WebSerial.println("Keypad Unlocked");
-  keypadtrigger = 0;
-  digitalWrite(5, HIGH);
-}
+    WebSerial.println(analogRead(34)); //
+    emergencyTrigger = millis();
+    WebSerial.println("Door Triggered");
+    triggerDoor(5);
+    // delay(50); // I'm gonna be removing thehse.
+  }
 
-if (keypadtrigger == 2) // Lock the Door Steady State
+  /* REMOVE AFTER HARDWARE MOD */
+
+  if (keypadtrigger == 1) // Unlock the Door Steady State
   {
-  WebSerial.println("Keypad Locked");
-  keypadtrigger = 0;
-  digitalWrite(5, LOW);
-}
+    WebSerial.println("Keypad Unlocked");
+    keypadtrigger = 0;
+    digitalWrite(5, HIGH);
+  }
 
+  if (keypadtrigger == 2) // Lock the Door Steady State
+  {
+    WebSerial.println("Keypad Locked");
+    keypadtrigger = 0;
+    digitalWrite(5, LOW);
+  }
 
   asynctimer.handle();
 }
