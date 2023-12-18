@@ -128,14 +128,14 @@ Card tangrum_status(&dashboard, STATUS_CARD, "Tangrum Puzzle", "warning");
 Card sennet_status(&dashboard, STATUS_CARD, "Sennet Puzzle", "warning");
 Card backuplight_card_status(&dashboard, STATUS_CARD, "Backup Bike Light", "warning");
 
-Card errortest_card(&dashboard, BUTTON_CARD, "Error Testing - Crash Master"); // momentary
+// Card errortest_card(&dashboard, BUTTON_CARD, "Error Testing - Crash Master"); // momentary
 
 /* Attic */
 Card humanchain_card(&dashboard, BUTTON_CARD, "Open Human Chain Door"); // momentary
 Card trim1(&dashboard, BUTTON_CARD, "Trim Clock Up");                   // momentary
 Card trim2(&dashboard, BUTTON_CARD, "Trim Clock Down");                 // momentary
 Card clockjoystick(&dashboard, JOYSTICK_CARD, "Clock Control", "lockY");
-Card reset_RFID(&dashboard, BUTTON_CARD, "Reset RFID Puzzle"); // momentary
+// Card reset_RFID(&dashboard, BUTTON_CARD, "Reset RFID Puzzle"); // momentary
 
 Card lockdoor(&dashboard, BUTTON_CARD, "Lock RFID Door"); // momentary
 
@@ -144,7 +144,7 @@ Card DOORTOUCH(&dashboard, STATUS_CARD, "Human Chain", "idle");
 Card trigger_clock(&dashboard, BUTTON_CARD, "Manually Trigger Clock (UP)"); // momentary
 Card reset_clock(&dashboard, BUTTON_CARD, "Reset Clock Position (DOWN)");   // momentary
 
-Card overide_rfid(&dashboard, BUTTON_CARD, "Override All RFID"); // momentary
+// Card overide_rfid(&dashboard, BUTTON_CARD, "Override All RFID"); // momentary
 Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
 Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
 Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
@@ -249,13 +249,16 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
   if (rData.origin == attic_RFID1 && rData.sensor == attic_RFID1)
   {
-    if (RFID1_complete == false)
+
+      attic_rfid1.update(rData.data, "warning");
+
+    if (rData.data == 0)
     {
       attic_rfid1.update("None", "warning");
       RFID1_reset = true;
     }
 
-    if (rData.data == 100)
+    if (rData.data == 1)
     {
       attic_rfid1.update("COMPLETE", "success");
       RFID1_complete = true;
@@ -266,11 +269,8 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
   if (rData.origin == attic_RFID2 && rData.sensor == attic_RFID2)
   {
-    if (RFID2_complete == false)
-    {
-      attic_rfid2.update(rData.data, "warning");
-      RFID2_reset = false;
-    }
+
+    attic_rfid2.update(rData.data, "warning");
 
     if (rData.data == 0)
     {
@@ -278,7 +278,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
       RFID2_reset = true;
     }
 
-    if (rData.data == 100)
+    if (rData.data == 2)
     {
       attic_rfid2.update("COMPLETE", "success");
       RFID2_complete = true;
@@ -288,12 +288,8 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
   if (rData.origin == attic_RFID3 && rData.sensor == attic_RFID3)
   {
-    if (RFID3_complete == false)
-    {
+
       attic_rfid3.update(rData.data, "warning");
-      WebSerial.println("RFID3 complete false;");
-      RFID3_reset = false;
-    }
 
     if (rData.data == 0)
     {
@@ -302,7 +298,16 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
       RFID3_reset = true;
     }
 
-    if (rData.data == 100)
+
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+// TEMP EDIT, REMEMBER To REPLACE WITH == 3
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+
+    if (rData.data >= 2)
     {
       attic_rfid3.update("COMPLETE", "success");
       WebSerial.println("RFID3 Complete Success");
@@ -313,26 +318,16 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
   if (rData.origin == attic_RFID4 && rData.sensor == attic_RFID4)
   {
-    if (RFID4_complete == false)
-    {
-      attic_rfid4.update(rData.data, "warning");
-    }
 
-    if (rData.data == 1)
-    { // This is equivalent to RESET because 1 is always active.
-      RFID4_reset = true;
-    }
-    else
-    {
-      RFID4_reset = false;
-    }
+    attic_rfid4.update(rData.data, "warning");
+    
 
     if (rData.data == 0)
     {
       attic_rfid4.update("None", "warning");
     }
 
-    if (rData.data == 100)
+    if (rData.data == 6)
     {
       attic_rfid4.update("COMPLETE", "success");
       RFID4_complete = true;
@@ -421,9 +416,9 @@ void configDash()
   trim1.setTab(&attic);
   trim2.setTab(&attic);
   clockjoystick.setTab(&attic);
-  reset_RFID.setTab(&attic);
+  // reset_RFID.setTab(&attic);
   lockdoor.setTab(&attic);
-  overide_rfid.setTab(&attic);
+  // overide_rfid.setTab(&attic);
   lockdoor_status.setTab(&attic);
   DOORTOUCH.setTab(&attic);
   // clock_reset.setTab(&attic);
@@ -555,39 +550,39 @@ sData.data = 0; });
     time250 = millis();
   } });
 
-  reset_RFID.attachCallback([](int value) { // Reset the RFID Values by restarting the RFID readers.
-    buttonTimeout(&reset_RFID);
-    WebSerial.printf("RFID RESET-ALL triggered\n");
+  // reset_RFID.attachCallback([](int value) { // Reset the RFID Values by restarting the RFID readers.
+  //   buttonTimeout(&reset_RFID);
+  //   WebSerial.printf("RFID RESET-ALL triggered\n");
 
-    // Write TEMP so you can see its being reset:
-    attic_rfid1.update("Resetting...", "danger");
-    attic_rfid2.update("Resetting...", "danger");
-    attic_rfid3.update("Resetting...", "danger");
-    attic_rfid4.update("Resetting...", "danger");
+  //   // Write TEMP so you can see its being reset:
+  //   attic_rfid1.update("Resetting...", "danger");
+  //   attic_rfid2.update("Resetting...", "danger");
+  //   attic_rfid3.update("Resetting...", "danger");
+  //   attic_rfid4.update("Resetting...", "danger");
 
-    checkrfidstuck = true;
+  //   checkrfidstuck = true;
 
-    RFID1_complete = false;
-    RFID2_complete = false;
-    RFID3_complete = false;
-    RFID4_complete = false;
+  //   RFID1_complete = false;
+  //   RFID2_complete = false;
+  //   RFID3_complete = false;
+  //   RFID4_complete = false;
 
-    sData.origin = masterserver;
-    sData.sensor = masterserver;
-    sData.data = 77;
+  //   sData.origin = masterserver;
+  //   sData.sensor = masterserver;
+  //   sData.data = 77;
 
-    // Reset Attic
-    esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
+  //   // Reset Attic
+  //   esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
 
-    // Restart RFID
-    esp_now_send(m_RFID1, (uint8_t *)&sData, sizeof(sData));
-    esp_now_send(m_RFID2, (uint8_t *)&sData, sizeof(sData));
-    esp_now_send(m_RFID3, (uint8_t *)&sData, sizeof(sData));
-    esp_now_send(m_RFID4, (uint8_t *)&sData, sizeof(sData));
+  //   // Restart RFID
+  //   esp_now_send(m_RFID1, (uint8_t *)&sData, sizeof(sData));
+  //   esp_now_send(m_RFID2, (uint8_t *)&sData, sizeof(sData));
+  //   esp_now_send(m_RFID3, (uint8_t *)&sData, sizeof(sData));
+  //   esp_now_send(m_RFID4, (uint8_t *)&sData, sizeof(sData));
 
-    dashboard.sendUpdates();
+  //   dashboard.sendUpdates();
 
-  });
+  // });
 
   lockdoor.attachCallback([](int value)
                           {
@@ -612,20 +607,20 @@ if (value == 0) {
 
   dashboard.sendUpdates(); });
 
-  overide_rfid.attachCallback([](int value)
-                              {
-                                buttonTimeout(&overide_rfid);
-                                WebSerial.printf("RFID Override\n");
+  // overide_rfid.attachCallback([](int value)
+  //                             {
+  //                               buttonTimeout(&overide_rfid);
+  //                               WebSerial.printf("RFID Override\n");
 
-                                // Send override data to attic.
-                                sData.origin = masterserver;
-                                sData.sensor = masterserver;
-                                sData.data = 50;
-                                esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
-                                sData.data = 0;
+  //                               // Send override data to attic.
+  //                               sData.origin = masterserver;
+  //                               sData.sensor = masterserver;
+  //                               sData.data = 50;
+  //                               esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
+  //                               sData.data = 0;
 
-                                dashboard.sendUpdates();
-                              });
+  //                               dashboard.sendUpdates();
+  //                             });
 
   trigger_clock.attachCallback([](int value)
                                {
@@ -654,24 +649,24 @@ dashboard.sendUpdates(); });
                                dashboard.sendUpdates();
                              });
 
-  errortest_card.attachCallback([](int value)
-                                {
-                                  buttonTimeout(&errortest_card);
-                                  WebSerial.printf("<<<<CRASH Master!>>>\n");
+  // errortest_card.attachCallback([](int value)
+  //                               {
+  //                                 buttonTimeout(&errortest_card);
+  //                                 WebSerial.printf("<<<<CRASH Master!>>>\n");
 
-                                  // Send Messages to Atticmaster and TombMaster to CRASH spectacularly.
-                                  sData.origin = masterserver;
-                                  sData.sensor = masterserver;
-                                  sData.data = 999;
-                                  esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
-                                  esp_err_t result2 = esp_now_send(m_tombmaster, (uint8_t *)&sData, sizeof(sData));
+  //                                 // Send Messages to Atticmaster and TombMaster to CRASH spectacularly.
+  //                                 sData.origin = masterserver;
+  //                                 sData.sensor = masterserver;
+  //                                 sData.data = 999;
+  //                                 esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *)&sData, sizeof(sData));
+  //                                 esp_err_t result2 = esp_now_send(m_tombmaster, (uint8_t *)&sData, sizeof(sData));
 
-                                  while (true)
-                                  {
-                                    delay(2000);
-                                    WebSerial.println("Looping Infinite...");
-                                  }
-                                });
+  //                                 while (true)
+  //                                 {
+  //                                   delay(2000);
+  //                                   WebSerial.println("Looping Infinite...");
+  //                                 }
+  //                               });
 
   humanchain_card.attachCallback([](int value)
                                  {

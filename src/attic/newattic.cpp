@@ -262,31 +262,61 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
     }
 
     /*    STATUS UPDATES    */
-    if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1 && rData.data == 1){
-    RFID1_status = true;
+    if(rData.origin == attic_RFID1 && rData.sensor == attic_RFID1){
+    if (rData.data == 1) {
+      RFID1_status = true;
+    }
+    else {
+      RFID1_status = false;
+    }
     //Send an Updated 'flag' to master
-    rData.data = 100;
+    // rData.data = 100;
     esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
   }
 
-    if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2 && rData.data == 2){
-    RFID2_status = true;
+    if(rData.origin == attic_RFID2 && rData.sensor == attic_RFID2){
+
+        if (rData.data == 2) {
+      RFID2_status = true;
+    }
+    else {
+      RFID2_status = false;
+    }
+    
     //Send an Updated 'flag' to master
-    rData.data = 100;
+    // rData.data = 100;
     esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
   }
 
-    if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3 && rData.data >= 3){
-    RFID3_status = true;
+
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+// TEMP EDIT, REMEMBER To REPLACE WITH == 3
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+    if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3){
+        if (rData.data >= 2) {
+      RFID3_status = true;
+    }
+    else {
+      RFID3_status = false;
+    }
+
     //Send an Updated 'flag' to master
-    rData.data = 100;
     esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
   }
 
-    if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4 && rData.data >= 6){
-    RFID4_status = true;
+    if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4){
+        if (rData.data == 6) {
+      RFID4_status = true;
+    }
+    else {
+      RFID4_status = false;
+    }
     //Send an Updated 'flag' to master
-    rData.data = 100;
     esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &rData, sizeof(rData));
   }
 

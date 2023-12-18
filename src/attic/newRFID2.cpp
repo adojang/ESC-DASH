@@ -119,6 +119,9 @@ void sendData()
   if (result == ESP_OK) { Serial.println("Sent with success");}
   else {Serial.println("Error sending the data");}
 
+  hex1 = false;
+  hex2 = false;
+
 }
 
 
@@ -203,6 +206,9 @@ void setup() {
   WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
+    asynctimer.setInterval([]() {sendData();;},  1000);
+
+
 }
 
 
@@ -220,15 +226,12 @@ void loop() {
   
   for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     // Look for new cards
-
+    String uidText = "";
+//
     if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
-      // Serial.print(F("Reader "));
-      // Serial.print(reader);
-      // Show some details of the PICC (that is: the tag/card)
-      // Serial.print(F(": Card UID:"));
+
       dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
       
-      String uidText = "";
       for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
@@ -240,27 +243,32 @@ void loop() {
       if(uidText == "90311126" && reader==0){
         Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
-        sendData();
+        
       } 
 
       if(uidText == "c17231d" && reader==1){
         Serial.println("Pin 14 Reader 2 Triggered.");
         hex2 = true;
-        sendData();
+        
       } 
 
  
       
       //  Serial.print(F("PICC type: "));
-       MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
+
+  
+    } //if (mfrc522[reader].PICC_IsNewC
+
+    //Check if the card at this point is STILL there.
+    if(mfrc522[reader].PICC_IsCardPresent()) Serial.println("Card STILL THERE");
+  
+         MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
       //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
 
       // Halt PICC
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD
       mfrc522[reader].PCD_StopCrypto1();
-  
-    } //if (mfrc522[reader].PICC_IsNewC
   } //for(uint8_t reader
 
 /* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */

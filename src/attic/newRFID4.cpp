@@ -132,12 +132,20 @@ void sendData()
      HexCount = HexCount + 1;
   }
 
+    WebSerial.println(HexCount);
     sData.origin = attic_RFID4;
     sData.sensor = attic_RFID4;
     sData.data = HexCount;
     esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
     if (result == ESP_OK) { Serial.println("Sent with success");}
     else {Serial.println("Error sending the data");}
+
+    hex1 = false;
+    // hex2 = false;
+    hex3 = false;
+    hex4 = false;
+    hex5 = false;
+    hex6 = false;
 
 }
 
@@ -228,6 +236,7 @@ void setup() {
   WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
+  asynctimer.setInterval([]() {sendData();},  1000);
 }
 
 
@@ -243,28 +252,27 @@ unsigned long ttimer = millis();
 void loop() {
 
   
- for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+  for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     // Look for new cards
-
+    String uidText = "";
+//
     if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
-      // Serial.print(F("Reader "));
-      // Serial.print(reader);
-      // Show some details of the PICC (that is: the tag/card)
-      // Serial.print(F(": Card UID:"));
+
       dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
       
-      String uidText = "";
       for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
       Serial.println();
       Serial.println(uidText);
 
-            if(uidText == "90bd4a26" && reader==0){
+    
+
+
+        if(uidText == "90bd4a26" && reader==0){
         Serial.println("Pin 13 Reader 0 Triggered.");
-        WebSerial.println("Pin 13 Reader 0 Triggered.");
+        // WebSerial.println("Pin 13 Reader 0 Triggered.");
         hex1 = true;
-        sendData();
       } 
 
       //TEMP Excluded by Wendy's Request (Bottom one)
@@ -275,44 +283,48 @@ void loop() {
       //   sendData();
       // } 
 
-                  if(uidText == "901fd026" && reader==1){
+        if(uidText == "901fd026" && reader==1){
         Serial.println("Pin 26 Reader 1 Triggered.");
-        WebSerial.println("Pin 26 Reader 1 Triggered.");
+        // WebSerial.println("Pin 26 Reader 1 Triggered.");
         hex3 = true;
-        sendData();
       }
 
                   if(uidText == "932f92d" && reader==2){
         Serial.println("Pin 27 Reader 2 Triggered.");
-        WebSerial.println("Pin 27 Reader 2 Triggered.");
+        // WebSerial.println("Pin 27 Reader 2 Triggered.");
         hex4 = true;
-        sendData();
       } 
 
                   if(uidText == "31cc8b" && reader==3){
         Serial.println("Pin 32 Reader 5 Triggered.");
-        WebSerial.println("Pin 32 Reader 5 Triggered.");
+        // WebSerial.println("Pin 32 Reader 5 Triggered.");
         hex5 = true;
-        sendData();
       } 
 
                   if(uidText == "919a1f1d" && reader == 4){
         Serial.println("Pin 33 Reader 5 Triggered.");
-        WebSerial.println("Pin 33 Reader 5 Triggered.");
+        // WebSerial.println("Pin 33 Reader 5 Triggered.");
         
         hex6 = true;
-        sendData();
       } 
+
+ 
       
       //  Serial.print(F("PICC type: "));
-       MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
+
+  
+    } //if (mfrc522[reader].PICC_IsNewC
+
+    //Check if the card at this point is STILL there.
+    if(mfrc522[reader].PICC_IsCardPresent()) Serial.println("Card STILL THERE");
+  
+         MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
       //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
 
       // Halt PICC
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD
       mfrc522[reader].PCD_StopCrypto1();
-    } //if (mfrc522[reader].PICC_IsNewC
   } //for(uint8_t reader
 
 /* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */

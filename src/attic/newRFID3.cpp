@@ -117,13 +117,17 @@ void sendData()
      HexCount = HexCount + 1;
   }
 
-
+  WebSerial.println(HexCount);
   sData.origin = attic_RFID3;
   sData.sensor = attic_RFID3;
   sData.data = HexCount;
   esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
   if (result == ESP_OK) { Serial.println("Sent with success");}
   else {Serial.println("Error sending the data");}
+
+  hex1 = false;
+  hex2 = false;
+  hex3 = false;
 
 }
 
@@ -211,6 +215,7 @@ void setup() {
   WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
+  asynctimer.setInterval([]() {sendData();},  1000);
 }
 
 
@@ -222,71 +227,65 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
 }
 
 unsigned long ttimer = millis();
-unsigned long wstimer = millis();
+
 void loop() {
 
   
   for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     // Look for new cards
-
+    String uidText = "";
+//
     if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
-      // Serial.print(F("Reader "));
-      // Serial.print(reader);
-      // Show some details of the PICC (that is: the tag/card)
-      // Serial.print(F(": Card UID:"));
+
       dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
       
-      String uidText = "";
       for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
       Serial.println();
       Serial.println(uidText);
 
-            if(uidText == "9093a226" && reader==0){
-        WebSerial.println("Pin 13 Reader 1 Triggered.");
+    
+
+        if(uidText == "9093a226" && reader==0){
+        Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
-        sendData();
       } 
 
       if(uidText == "90d0126" && reader==1){
-        WebSerial.println("Pin 14 Reader 2 Triggered.");
+        Serial.println("Pin 14 Reader 2 Triggered.");
         hex2 = true;
-        sendData();
       } 
 
             if(uidText == "90b99e26" && reader==2){
-        WebSerial.println("Pin 27 Reader 3 Triggered.");
+        Serial.println("Pin 27 Reader 3 Triggered.");
         hex3 = true;
-        sendData();
       } 
       
+
+ 
+      
       //  Serial.print(F("PICC type: "));
-       MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
+
+  
+    } //if (mfrc522[reader].PICC_IsNewC
+
+    //Check if the card at this point is STILL there.
+    if(mfrc522[reader].PICC_IsCardPresent()) Serial.println("Card STILL THERE");
+  
+         MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
       //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
 
       // Halt PICC
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD
       mfrc522[reader].PCD_StopCrypto1();
-    } //if (mfrc522[reader].PICC_IsNewC
   } //for(uint8_t reader
 
 /* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */
 
-  delay(50); // This delay might cause in problems when multiple readers are used...
+  delay(25); // This delay might cause in problems when multiple readers are used...
 
-  // if(millis() - wstimer > 2000){
-  //   wstimer = millis();
-
-  //   WebSerial.printf("Card UUID Presence 1 Check: %d\n", mfrc522[0].PICC_IsCardPresent());
-  //   WebSerial.printf("Card UUID Presence 2 Check: %d\n", mfrc522[1].PICC_IsCardPresent());
-  //   WebSerial.printf("Card UUID Presence 3 Check: %d\n\n", mfrc522[2].PICC_IsCardPresent());
-
-
-  //   WebSerial.printf("Hex1: %s\n Hex2: %s\n Hex3: %s\n", (hex1 ? "True" : "False"), (hex2 ? "True" : "False"), (hex3 ? "True" : "False"));
-
-  // }
 
   asynctimer.handle();
 }

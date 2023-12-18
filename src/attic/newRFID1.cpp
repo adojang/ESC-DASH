@@ -113,6 +113,7 @@ void sendData()
   if (result == ESP_OK) { Serial.println("Sent with success");}
   else {Serial.println("Error sending the data");}
 
+  hex1 = false;
 }
 
 
@@ -197,6 +198,8 @@ void setup() {
   WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
+  asynctimer.setInterval([]() {sendData();;},  1000);
+
 }
 
 
@@ -236,17 +239,17 @@ void loop() {
 
       
       //  Serial.print(F("PICC type: "));
-       MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
-      //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
 
+    } //if (mfrc522[reader].PICC_IsNewC
+  
+         MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
+      //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
+    if(mfrc522[reader].PICC_IsCardPresent()) Serial.println("Card STILL THERE");
+  
       // Halt PICC
       mfrc522[reader].PICC_HaltA();
       // Stop encryption on PCD
       mfrc522[reader].PCD_StopCrypto1();
-      sData.data = 1;
-      sendData();
-      sData.data = 0;
-    } //if (mfrc522[reader].PICC_IsNewC
   } //for(uint8_t reader
 
 /* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */
