@@ -343,7 +343,7 @@ public:
 	static const char *PICC_GetTypeName(PICC_Type type);
 	
 	// Support functions for debuging
-	void PCD_DumpVersionToSerial();
+	int PCD_DumpVersionToSerial();
 	void PICC_DumpToSerial(Uid *uid);
 	void PICC_DumpDetailsToSerial(Uid *uid);
 	void PICC_DumpMifareClassicToSerial(Uid *uid, PICC_Type piccType, MIFARE_Key *key);

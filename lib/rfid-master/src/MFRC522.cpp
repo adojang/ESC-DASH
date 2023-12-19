@@ -1367,7 +1367,7 @@ const char *MFRC522::PICC_GetTypeName(PICC_Type piccType	///< One of the PICC_Ty
  * Dumps debug info about the connected PCD to Serial.
  * Shows all known firmware versions
  */
-void MFRC522::PCD_DumpVersionToSerial() {
+int MFRC522::PCD_DumpVersionToSerial() {
 	// Get the MFRC522 firmware version
 	byte v = PCD_ReadRegister(VersionReg);
 	Serial.print(F("Firmware Version: 0x"));
@@ -1382,8 +1382,13 @@ void MFRC522::PCD_DumpVersionToSerial() {
 		default:   Serial.println(F(" = (unknown)"));
 	}
 	// When 0x00 or 0xFF is returned, communication probably failed
-	if ((v == 0x00) || (v == 0xFF))
+	if ((v == 0x00) || (v == 0xFF)){
 		Serial.println(F("WARNING: Communication failure, is the MFRC522 properly connected?"));
+		return 1; // RESTART ESP, THERE HAS BEEN A COMMS ERROR.
+	}
+		
+
+		return 0; // Success
 } // End PCD_DumpVersionToSerial()
 
 /**

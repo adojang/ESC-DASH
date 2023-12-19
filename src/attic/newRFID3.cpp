@@ -176,7 +176,7 @@ void registermac(uint8_t address[]){
 void statusUpdate(){
   sData.origin = attic_RFID3;
   sData.sensor = status_alive;
-  Serial.println("STATUS ALIVE");
+  // Serial.println("STATUS ALIVE");
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
   esp_task_wdt_reset();
 }
@@ -211,7 +211,11 @@ void setup() {
     Serial.print(F("Reader "));
     Serial.print(reader);
     Serial.print(F(": "));
-    mfrc522[reader].PCD_DumpVersionToSerial();
+    
+    if(mfrc522[reader].PCD_DumpVersionToSerial() == 1){
+      Serial.println("ERROR, RESTARTING ESP TO HOPEFULLY CLEAR UP.");
+      ESP.restart();
+    };
   }
 
   sendData(); // On boot send data to reset counter to 0 on masterserver.
@@ -246,8 +250,8 @@ void loop() {
       for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
-      Serial.println();
-      Serial.println(uidText);
+      // Serial.println();
+      // Serial.println(uidText);
 
     
 
