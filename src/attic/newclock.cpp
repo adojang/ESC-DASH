@@ -154,7 +154,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if(rData.origin == masterserver && rData.data == 10){
   ledcWrite(0, 200);
   ledcWrite(1, 0);
-  delay(2000);
+  delay(1000);
 
   ledcWrite(0, 0);
   ledcWrite(1, 0);
@@ -164,7 +164,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if(rData.origin == masterserver && rData.data ==20){
     ledcWrite(0, 0);
     ledcWrite(1, 200);
-    delay(2000);
+    delay(1000);
 
     ledcWrite(0, 0);
     ledcWrite(1, 0);

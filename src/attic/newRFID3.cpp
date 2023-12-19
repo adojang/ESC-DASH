@@ -107,14 +107,17 @@ void sendData()
 
   if (hex1 == true){
     HexCount = HexCount + 1;
+    WebSerial.printf("Hex1 | ");
   }
 
   if (hex2 == true){
      HexCount = HexCount + 1;
+    WebSerial.printf("Hex2 | ");
   }
   
   if (hex3 == true){
      HexCount = HexCount + 1;
+     WebSerial.printf("Hex3\n");
   }
 
   WebSerial.println(HexCount);
@@ -173,6 +176,7 @@ void registermac(uint8_t address[]){
 void statusUpdate(){
   sData.origin = attic_RFID3;
   sData.sensor = status_alive;
+  Serial.println("STATUS ALIVE");
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
   esp_task_wdt_reset();
 }
@@ -215,7 +219,7 @@ void setup() {
   WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
-  asynctimer.setInterval([]() {sendData();},  1000);
+  asynctimer.setInterval([]() {sendData();},  500);
 }
 
 
@@ -248,17 +252,17 @@ void loop() {
     
 
         if(uidText == "9093a226" && reader==0){
-        Serial.println("Pin 13 Reader 1 Triggered.");
+        // Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
       } 
 
       if(uidText == "90d0126" && reader==1){
-        Serial.println("Pin 14 Reader 2 Triggered.");
+        // Serial.println("Pin 14 Reader 2 Triggered.");
         hex2 = true;
       } 
 
             if(uidText == "90b99e26" && reader==2){
-        Serial.println("Pin 27 Reader 3 Triggered.");
+        // Serial.println("Pin 27 Reader 3 Triggered.");
         hex3 = true;
       } 
       
