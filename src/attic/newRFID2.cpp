@@ -106,12 +106,15 @@ void sendData()
 
   if (hex1 == true){
     HexCount = HexCount + 1;
+    WebSerial.printf("Hex1 | ");
   }
 
   if (hex2 == true){
      HexCount = HexCount + 1;
+     WebSerial.printf("Hex2 \n");
   }
   
+  WebSerial.println(HexCount);
   sData.origin = attic_RFID2;
   sData.sensor = attic_RFID2;
   sData.data = HexCount;
@@ -126,8 +129,9 @@ void sendData()
 
 
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");}
-
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  // WebSerial.println(status == ESP_NOW_SEND_SUCCESS ? "Packet Delivery Success" : "Packet Delivery Fail");
+  }
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) 
 {
   memcpy(&rData, incomingData, sizeof(rData));
@@ -198,7 +202,10 @@ void setup() {
     Serial.print(F("Reader "));
     Serial.print(reader);
     Serial.print(F(": "));
-    mfrc522[reader].PCD_DumpVersionToSerial();
+    if(mfrc522[reader].PCD_DumpVersionToSerial() == 1){
+      Serial.println("ERROR, RESTARTING ESP TO HOPEFULLY CLEAR UP.");
+      ESP.restart();
+    };
   }
 
   sendData(); // On boot send data to reset counter to 0 on masterserver.

@@ -105,7 +105,7 @@ void sendData()
     HexCount = HexCount + 1;
   }
 
-  
+  WebSerial.println(HexCount);
   sData.origin = attic_RFID1;
   sData.sensor = attic_RFID1;
   sData.data = HexCount;
@@ -190,7 +190,10 @@ void setup() {
     Serial.print(F("Reader "));
     Serial.print(reader);
     Serial.print(F(": "));
-    mfrc522[reader].PCD_DumpVersionToSerial();
+        if(mfrc522[reader].PCD_DumpVersionToSerial() == 1){
+      Serial.println("ERROR, RESTARTING ESP TO HOPEFULLY CLEAR UP.");
+      ESP.restart();
+    };
   }
 
   sendData(); // On boot send data to reset counter to 0 on masterserver.

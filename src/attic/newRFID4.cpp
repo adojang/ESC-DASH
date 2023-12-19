@@ -110,26 +110,32 @@ void sendData()
 
   if (hex1 == true){
     HexCount = HexCount + 1;
+    WebSerial.printf("Hex1 | ");
   }
 
   if (hex2 == true){
      HexCount = HexCount + 1;
+     WebSerial.printf("Hex2 | ");
   }
   
   if (hex3 == true){
      HexCount = HexCount + 1;
+     WebSerial.printf("Hex3 | ");
   }
 
   if (hex4 == true){
      HexCount = HexCount + 1;
+    WebSerial.printf("Hex4 | ");
   }
 
   if (hex5 == true){
      HexCount = HexCount + 1;
+    WebSerial.printf("Hex5 | ");
   }
 
   if (hex6 == true){
      HexCount = HexCount + 1;
+    WebSerial.println("Hex6 | \n");
   }
 
     WebSerial.println(HexCount);
@@ -228,7 +234,10 @@ void setup() {
     Serial.print(F("Reader "));
     Serial.print(reader);
     Serial.print(F(": "));
-    mfrc522[reader].PCD_DumpVersionToSerial();
+        if(mfrc522[reader].PCD_DumpVersionToSerial() == 1){
+      Serial.println("ERROR, RESTARTING ESP TO HOPEFULLY CLEAR UP.");
+      ESP.restart();
+    };
   }
 
   sendData(); // On boot send data to reset counter to 0 on masterserver.
@@ -263,14 +272,14 @@ void loop() {
       for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
-      Serial.println();
-      Serial.println(uidText);
+      // Serial.println();
+      // Serial.println(uidText);
 
     
 
 
         if(uidText == "90bd4a26" && reader==0){
-        Serial.println("Pin 13 Reader 0 Triggered.");
+        // Serial.println("Pin 13 Reader 0 Triggered.");
         // WebSerial.println("Pin 13 Reader 0 Triggered.");
         hex1 = true;
       } 
@@ -284,25 +293,25 @@ void loop() {
       // } 
 
         if(uidText == "901fd026" && reader==1){
-        Serial.println("Pin 26 Reader 1 Triggered.");
+        // Serial.println("Pin 26 Reader 1 Triggered.");
         // WebSerial.println("Pin 26 Reader 1 Triggered.");
         hex3 = true;
       }
 
                   if(uidText == "932f92d" && reader==2){
-        Serial.println("Pin 27 Reader 2 Triggered.");
+        // Serial.println("Pin 27 Reader 2 Triggered.");
         // WebSerial.println("Pin 27 Reader 2 Triggered.");
         hex4 = true;
       } 
 
                   if(uidText == "31cc8b" && reader==3){
-        Serial.println("Pin 32 Reader 5 Triggered.");
+        // Serial.println("Pin 32 Reader 5 Triggered.");
         // WebSerial.println("Pin 32 Reader 5 Triggered.");
         hex5 = true;
       } 
 
                   if(uidText == "919a1f1d" && reader == 4){
-        Serial.println("Pin 33 Reader 5 Triggered.");
+        // Serial.println("Pin 33 Reader 5 Triggered.");
         // WebSerial.println("Pin 33 Reader 5 Triggered.");
         
         hex6 = true;

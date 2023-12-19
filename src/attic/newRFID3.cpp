@@ -223,7 +223,7 @@ void setup() {
   WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
 
   asynctimer.setInterval([]() {statusUpdate();},  1000);
-  asynctimer.setInterval([]() {sendData();},  500);
+  asynctimer.setInterval([]() {sendData();},  1000);
 }
 
 
