@@ -197,6 +197,7 @@ void loop() {
 
   WebSerial.printf("Seconds Online: %d\n", millis()/1000);
   WebSerial.printf("Pawns Present: %d\n", total);
+  timer1sec = millis();
   }
 
 
@@ -217,12 +218,13 @@ void loop() {
 
 }
 
-//This arms the relay again so it will work.
+//Restart ESP every two minutes and hope for dear life it works.
+//It will only restart if all pieces are not present or are removed.
   if(total == 0 && (millis() - oneshottimer > 120000)){
     Serial.printf("RELAY ARMED\n", total);
-    oneshottimer = millis();
+    // oneshottimer = millis(); //irrelavent
     ESP.restart();
-    shotcnt = 0;
+    // shotcnt = 0; //irrelavent, since we are restarting, and this code will never actually
   }
 
         MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
