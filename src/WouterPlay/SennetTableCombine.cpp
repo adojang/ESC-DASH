@@ -190,11 +190,16 @@ int shotcnt = 0;
 
 unsigned long oneshottimer = millis();
 
-
+unsigned long timer1sec = millis();
 void loop() {
+
+  if(millis() - timer1sec > 1000){
 
   WebSerial.printf("Seconds Online: %d\n", millis()/1000);
   WebSerial.printf("Pawns Present: %d\n", total);
+  }
+
+
     total = 0;
  for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     // Look for new cards
