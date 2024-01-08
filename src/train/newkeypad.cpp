@@ -3,7 +3,7 @@
                           Tygervallei Escape Room Project
 --------------------------------------------------------------------------                          
   Author: Adriaan van Wijk
-  Date: 16 October 2023
+  Date: 8 January 2024
 
   This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
@@ -197,7 +197,7 @@ void flashRED(){
   sData.origin = train_keypad;
   sData.sensor = train_keypad;
   sData.data = 2;
-  esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_err_t result = esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
   digitalWrite(15,HIGH); // Disable Solid Green
   digitalWrite(23,HIGH);
   //Flash Red LED Many Times
@@ -219,7 +219,7 @@ void sendData()
   sData.sensor = train_keypad;
   sData.data = 1;
 
-  esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  esp_err_t result = esp_now_send(m_trainmaster, (uint8_t *) &sData, sizeof(sData));
 
 
   digitalWrite(2,HIGH); // Turn of Red LED
@@ -244,6 +244,7 @@ void setup() {
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_masterserver);
+  registermac(m_trainmaster);
 
   sData.origin = train_keypad;
   sData.sensor = train_keypad;
