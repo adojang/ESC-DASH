@@ -806,6 +806,7 @@ void updateTime()
     }
   }
   dashboard.sendUpdates();
+      esp_task_wdt_reset();
 }
 
 void setup()
