@@ -27,7 +27,8 @@
 */
 
 #include <EscCore.h>
-
+#include <esp_task_wdt.h> // watchdoggo
+#define WDT_TIMEOUT 15 // 15 seconds
 #define NAME "escape"
 #define setMACAddress m_masterserver
 
@@ -810,6 +811,10 @@ void updateTime()
 void setup()
 {
   Serial.begin(115200); // Not used, kept for redundancy.
+  
+  Serial.println("Configuring WDT...");
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  esp_task_wdt_add(NULL); //add current thread to WDT watch
 
   Core.startup(setMACAddress, NAME, server);
   startespnow();
