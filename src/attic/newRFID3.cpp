@@ -332,6 +332,8 @@ void loop() {
 
 
   handleRFID();
+
+  
   asynctimer.handle();
 }
 
