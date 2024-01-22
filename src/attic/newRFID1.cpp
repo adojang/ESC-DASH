@@ -3,7 +3,7 @@
                           Tygervallei Escape Room Project
 --------------------------------------------------------------------------                          
   Author: Adriaan van Wijk
-  Date: 16 October 2023
+  Date: 22 January 2024
 
   This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
@@ -112,8 +112,6 @@ void sendData()
   esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
   if (result == ESP_OK) { Serial.println("Sent with success");}
   else {Serial.println("Error sending the data");}
-
-  hex1 = false;
 }
 
 
@@ -213,52 +211,84 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
   }
 }
 
-unsigned long ttimer = millis();
+bool rfid_tag_present_prev[1] = {false};
+bool rfid_tag_present[1] = {false};
+int _rfid_error_counter[1] ={0};
+bool _tag_found[1] = {false};
 
-void loop() {
 
+void handleRFID(){
   
-   for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
-    // Look for new cards
+for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+  String uidText = "";
 
-    if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
-      // Serial.print(F("Reader "));
-      // Serial.print(reader);
-      // Show some details of the PICC (that is: the tag/card)
-      // Serial.print(F(": Card UID:"));
-      dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
-      
-      String uidText = "";
-      for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
+    rfid_tag_present_prev[reader] = rfid_tag_present[reader];
+    _rfid_error_counter[reader] += 1;
+  if(_rfid_error_counter[reader] > 2){
+    _tag_found[reader] = false;
+  }
+
+  // Detect Tag without looking for collisions
+  byte bufferATQA[2];
+  byte bufferSize = sizeof(bufferATQA);
+
+  // Reset baud rates
+  mfrc522[reader].PCD_WriteRegister(mfrc522[reader].TxModeReg, 0x00);
+  mfrc522[reader].PCD_WriteRegister(mfrc522[reader].RxModeReg, 0x00);
+  // Reset ModWidthReg
+  mfrc522[reader].PCD_WriteRegister(mfrc522[reader].ModWidthReg, 0x26);
+
+  MFRC522::StatusCode result = mfrc522[reader].PICC_RequestA(bufferATQA, &bufferSize);
+
+  if(result == mfrc522[reader].STATUS_OK){
+    if ( ! mfrc522[reader].PICC_ReadCardSerial()) {
+       //Since a PICC placed get Serial and continue   
+      return;
+    }
+    _rfid_error_counter[reader] = 0;
+    _tag_found[reader] = true;        
+  
+  // dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
+
+  for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
-      Serial.println();
-      Serial.println(uidText);
-
-      if(uidText == "b141a11d"){
-        Serial.println("Pin 13 Reader 1 Triggered.");
+      // Serial.println();
+      // Serial.println(uidText);
+  
+  }
+  
+  rfid_tag_present[reader] = _tag_found[reader];
+  
+  // rising edge
+  if (rfid_tag_present[reader] && !rfid_tag_present_prev[reader]){
+    // Serial.println("Tag found");
+      if(uidText == "b141a11d" && reader==0){
+        // Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = true;
       } 
 
-      
-      //  Serial.print(F("PICC type: "));
 
-    } //if (mfrc522[reader].PICC_IsNewC
+
+  }
   
-         MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
-      //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
-    if(mfrc522[reader].PICC_IsCardPresent()) Serial.println("Card STILL THERE");
-  
-      // Halt PICC
-      mfrc522[reader].PICC_HaltA();
-      // Stop encryption on PCD
-      mfrc522[reader].PCD_StopCrypto1();
-  } //for(uint8_t reader
+  // falling edge
+  if (!rfid_tag_present[reader] && rfid_tag_present_prev[reader]){
+    // Serial.println("Tag gone");
+   
+         if(reader==0){
+        // Serial.println("Pin 13 Reader 1 Triggered.");
+        hex1 = false;
+      } 
 
-/* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */
+  }
 
-  delay(25); // This delay might cause in problems when multiple readers are used...
+} // For loop
+}
 
 
+void loop() {
+
+  handleRFID();
   asynctimer.handle();
 }
