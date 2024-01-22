@@ -408,8 +408,19 @@ void configDash()
   attic_rfid2.setIndex(1);
   attic_rfid3.setIndex(2);
   attic_rfid4.setIndex(3);
-  humanchain_card.setIndex(4);
-  
+  lockdoor_status.setIndex(4);
+  lockdoor.setIndex(5);
+  humanchain_card.setIndex(6);
+  DOORTOUCH.setIndex(7);
+  attic_bikelight.setIndex(8);
+  attic_light.setIndex(9);
+  trigger_clock.setIndex(10);
+  reset_clock.setIndex(11);
+  clockjoystick.setIndex(12);
+  trim1.setIndex(13);
+  trim2.setIndex(14);
+
+
 
   /* Tomb */
   sennet_card.setTab(&tomb);
