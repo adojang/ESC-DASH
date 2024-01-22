@@ -3,7 +3,7 @@
                           Tygervallei Escape Room Project
 --------------------------------------------------------------------------
   Author: Adriaan van Wijk
-  Date: 8 January 2024
+  Date: 22 January 2024
 
   This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
@@ -200,7 +200,7 @@ void setup()
 unsigned long ttimer = millis();
 int total = 0;
 bool oneshotEnable = true;
-int shotcnt = 0;
+int oneShot = 0;
 
 unsigned long oneshottimer = millis();
 
@@ -229,9 +229,11 @@ void loop()
     timer1sec = millis();
   }
 
+  ///////////////////////////////////////
+  /////////// RFID Core Code ///////////
+  ///////////////////////////////////////
 
-//RFID Core Code.
-
+    total = 0; // Reset count.
 
 for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
   String uidText = "";
@@ -288,69 +290,17 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
 } // For loop
 
 //At the end of each loop, reset total to 0;
-    if ((total == 4) && shotcnt == 0)
+    if ((total == 4) && oneShot == 0)
     {
       Serial.printf("Puzzle Complete! 4/4\n");
       trigger();
-      shotcnt = 1;
+      oneShot = 1;
     }
-
-        if ((total < 4) && shotcnt == 1)
+      //if total == 3 or less
+      if ((total < 4) && oneShot == 1)
     {
-      shotcnt = 0;
+      oneShot = 0;
     }
 
-    // Restart ESP every two minutes and hope for dear life it works.
-    // It will only restart if all pieces are not present or are removed.
-    if (total == 0 && (millis() - oneshottimer > 120000))
-    {
-      Serial.printf("RELAY ARMED\n", total);
-      // oneshottimer = millis(); //irrelavent
-      ESP.restart();
-      // shotcnt = 0; //irrelavent, since we are restarting, and this code will never actually
-    }
-
-
-
-  // total = 0;
-  // for (uint8_t reader = 0; reader < NR_OF_READERS; reader++)
-  // {
-  //   // Look for new cards
-
-  //   if (mfrc522[reader].PICC_IsCardPresent())
-  //     total += 1;
-
-  //   if ((total == 4) && shotcnt == 0)
-  //   {
-  //     // ttimer = millis();
-  //     // oneshotEnable = false;
-
-  //     Serial.printf("Puzzle Complete! 4/4\n");
-  //     trigger();
-  //     shotcnt = 1;
-  //   }
-
-  //   // Restart ESP every two minutes and hope for dear life it works.
-  //   // It will only restart if all pieces are not present or are removed.
-  //   if (total == 0 && (millis() - oneshottimer > 120000))
-  //   {
-  //     Serial.printf("RELAY ARMED\n", total);
-  //     // oneshottimer = millis(); //irrelavent
-  //     ESP.restart();
-  //     // shotcnt = 0; //irrelavent, since we are restarting, and this code will never actually
-  //   }
-
-  //   MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
-  //   mfrc522[reader].PICC_HaltA();
-  //   mfrc522[reader].PCD_StopCrypto1();
-  // }
-
-  // delay(5); // This delay might cause in problems when multiple readers are used...
-  
-  
-  
-  
-  total = 0; // Reset count.
-  
   asynctimer.handle();
 }
