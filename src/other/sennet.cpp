@@ -36,6 +36,15 @@
 
 /* Configuration and Setup */
 
+//RFID SETUP
+
+// D18 -   SCK
+// D19 -   MISO
+// D23 -   MOSI
+// D5 -    RST
+// NO CONNECT -    RQ
+// SDA - See the pins below:
+
 #define RST_PIN 5
 #define SS_1_PIN 13
 #define SS_2_PIN 25
