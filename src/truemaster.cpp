@@ -151,10 +151,10 @@ Card trigger_clock(&dashboard, BUTTON_CARD, "Manually Trigger Clock (UP)"); // m
 Card reset_clock(&dashboard, BUTTON_CARD, "Reset Clock Position (DOWN)");   // momentary
 
 // Card overide_rfid(&dashboard, BUTTON_CARD, "Override All RFID"); // momentary
-Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1 Status", "idle");
-Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2 Status", "idle");
-Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3 Status", "idle");
-Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4 Status", "idle");
+Card attic_rfid1(&dashboard, STATUS_CARD, "RFID1", "idle");
+Card attic_rfid2(&dashboard, STATUS_CARD, "RFID2", "idle");
+Card attic_rfid3(&dashboard, STATUS_CARD, "RFID3", "idle");
+Card attic_rfid4(&dashboard, STATUS_CARD, "RFID4", "idle");
 Card attic_bikelight(&dashboard, BUTTON_CARD, "Bike Light Override");
 Card attic_light(&dashboard, BUTTON_CARD, "Backup Bike Light Overide");
 
@@ -237,7 +237,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
     if (rData.data == 1)
     {
-      attic_rfid1.update("COMPLETE", "success");
+      attic_rfid1.update("Done", "success");
       RFID1_complete = true;
       RFID1_reset = false;
     }
@@ -256,7 +256,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
     if (rData.data == 2)
     {
-      attic_rfid2.update("COMPLETE", "success");
+      attic_rfid2.update("Done", "success");
       RFID2_complete = true;
     }
   }
@@ -276,7 +276,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
     if (rData.data == 3)
     {
-      attic_rfid3.update("COMPLETE", "success");
+      attic_rfid3.update("Done", "success");
       WebSerial.println("RFID3 Complete Success");
       RFID3_complete = true;
     }
@@ -295,7 +295,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 
     if (rData.data == 5)
     {
-      attic_rfid4.update("COMPLETE", "success");
+      attic_rfid4.update("Done", "success");
       RFID4_complete = true;
     }
   }
@@ -592,7 +592,7 @@ lockdoor.update(value);
 if (value == 1) {
   rfiddoorlock = true;
   WebSerial.printf("RFID Door Locked\n");
-  lockdoor_status.update("Door Locked", "warning");
+  lockdoor_status.update("Locked", "warning");
   sData.data = 88;
   esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
   sData.data = 0;
@@ -600,7 +600,7 @@ if (value == 1) {
 if (value == 0) {
   rfiddoorlock = false;
   WebSerial.printf("RFID Door Unlocked\n");
-  lockdoor_status.update("Door Unlocked", "success");
+  lockdoor_status.update("Unlocked", "success");
   
   sData.data = 99;
   esp_err_t result = esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
@@ -784,7 +784,7 @@ dashboard.sendUpdates(); });
                                    });
 
   // Initialize Statues'
-  lockdoor_status.update("Door Unlocked", "success");
+  lockdoor_status.update("Unlocked", "success");
   attic_rfid1.update("Unknown", "danger");
   attic_rfid2.update("Unknown", "danger");
   attic_rfid3.update("Unknown", "danger");

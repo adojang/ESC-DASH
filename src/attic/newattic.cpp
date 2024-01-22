@@ -290,7 +290,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
 
 
     if(rData.origin == attic_RFID3 && rData.sensor == attic_RFID3){
-        if (rData.data >= 3) {
+        if (rData.data == 3) {
       RFID3_status = true;
     }
     else {
@@ -302,7 +302,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len)
   }
 
     if(rData.origin == attic_RFID4 && rData.sensor == attic_RFID4){
-        if (rData.data == 6) {
+        if (rData.data == 5) {
       RFID4_status = true;
     }
     else {
