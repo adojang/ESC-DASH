@@ -330,6 +330,24 @@ unsigned long gtime = millis();
 // int counter = 0;
 // int clocktimer = millis();
 
+void triggersystem(){
+      oneShot = true;
+      EEPROM.write(0, true);
+      EEPROM.commit();
+      Serial.println(EEPROM.read(0));
+      sData.origin = attic_clock;
+      sData.sensor = attic_clock;
+      if (oneShot == true) sData.data = 1;
+      if (oneShot == false) sData.data = 0;
+      esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
+      WebSerial.println("Send Oneshot. Clock now thinks it is in UP position.");
+      Serial.println(oneShot);
+      activateServo();
+}
+
+/// @brief This keeps track of the transients. It increases by 1 in 250ms intervals when true, and decays by 1 in 1000ms intervals when false.
+int clockcount = 0;
+
 void loop() {
 
 // if (millis() - clocktimer > 30000){
@@ -346,6 +364,9 @@ void loop() {
     gtime = millis();
     statusUpdate();
     Serial.println("Post Status Update");
+    clockcount--;
+    if (clockcount < 0) clockcount = 0;
+    WebSerial.println(clockcount);
   }
 
 
@@ -357,37 +378,26 @@ void loop() {
 
 
   //ReadSensor and Handle Timeouts and check the Sequence and Trigger the Motor.
+  //increased from 500
   if (millis() - ttime > 500){
     ttime = millis();
   
   getReadings();
 
+    if ((sens1==HIGH) && (sens2==LOW)) { // correct holes covered, trigger
+      clockcount++;
+      WebSerial.println("Count In:");
+      WebSerial.println(clockcount);
+    }
 
-  if ((sequence==0) && (sens1==LOW) && (sens2==LOW)){ // If both are covered.
-    sequence=1;
   }
-  
-  if ((sequence==1) && (sens1==HIGH) && (sens2==LOW) && (oneShot == false)) { // correct holes covered, trigger
-    oneShot = true;
-    EEPROM.write(0, true);
-    EEPROM.commit();
-    Serial.println(EEPROM.read(0));
-    sData.origin = attic_clock;
-    sData.sensor = attic_clock;
-    if (oneShot == true) sData.data = 1;
-    if (oneShot == false) sData.data = 0;
-    esp_now_send(m_atticmaster, (uint8_t *) &sData, sizeof(sData));
-    WebSerial.println("Send Oneshot. Clock now thinks it is in UP position.");
-    Serial.println(oneShot);
-    activateServo();
-  
-    sequence=0;
-  } 
-  else if ((sequence==1) && (sens1==HIGH) && (sens2==HIGH)) { // both are open
-    sequence=0;
-  }
-  printSequence();
-  }
+
+if (clockcount >= 2 && (oneShot == false)){
+  WebSerial.println("TRIGGER!");
+  clockcount = 0;
+  triggersystem();
+}
+
 
 
 
