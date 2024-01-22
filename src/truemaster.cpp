@@ -274,7 +274,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
     }
 
 
-    if (rData.data >= 3)
+    if (rData.data == 3)
     {
       attic_rfid3.update("COMPLETE", "success");
       WebSerial.println("RFID3 Complete Success");
@@ -293,7 +293,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
       attic_rfid4.update("None", "warning");
     }
 
-    if (rData.data == 6)
+    if (rData.data == 5)
     {
       attic_rfid4.update("COMPLETE", "success");
       RFID4_complete = true;
@@ -401,6 +401,15 @@ void configDash()
   attic_rfid4.setTab(&attic);
   attic_bikelight.setTab(&attic);
   attic_light.setTab(&attic);
+
+  //Indexing to make it pretty:
+
+  attic_rfid1.setIndex(0);
+  attic_rfid2.setIndex(1);
+  attic_rfid3.setIndex(2);
+  attic_rfid4.setIndex(3);
+  humanchain_card.setIndex(4);
+  
 
   /* Tomb */
   sennet_card.setTab(&tomb);

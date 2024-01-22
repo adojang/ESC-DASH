@@ -93,7 +93,7 @@ byte ssPins[] = {SS_1_PIN, SS_2_PIN, SS_3_PIN, SS_4_PIN, SS_5_PIN, SS_6_PIN};
 MFRC522 mfrc522[NR_OF_READERS];   // Create MFRC522 instance.
 
 bool hex1 = false;
-bool hex2 = true; // excluded for now. This is the blank block at the bottom.
+// bool hex2 = true; // excluded for now. This is the blank block at the bottom.
 bool hex3 = false;
 bool hex4 = false;
 bool hex5 = false; 
@@ -113,10 +113,10 @@ void sendData()
     WebSerial.printf("Hex1 | ");
   }
 
-  if (hex2 == true){
-     HexCount = HexCount + 1;
-     WebSerial.printf("Hex2 | ");
-  }
+  // if (hex2 == true){
+  //    HexCount = HexCount + 1;
+  //    WebSerial.printf("Hex2 | ");
+  // }
   
   if (hex3 == true){
      HexCount = HexCount + 1;
@@ -146,12 +146,6 @@ void sendData()
     if (result == ESP_OK) { Serial.println("Sent with success");}
     else {Serial.println("Error sending the data");}
 
-    hex1 = false;
-    // hex2 = false;
-    hex3 = false;
-    hex4 = false;
-    hex5 = false;
-    hex6 = false;
 
 }
 
@@ -255,91 +249,152 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
     Serial.print(buffer[i], HEX);
   }
 }
+bool rfid_tag_present_prev[5] = {false,false,false,false,false};
+bool rfid_tag_present[5] = {false,false,false,false,false};
+int _rfid_error_counter[5] ={0,0,0,0,0};
+bool _tag_found[5] = {false,false,false,false,false};
 
-unsigned long ttimer = millis();
+// bool tag_status[3] = {0,0,0};
 
-void loop() {
-
+void handleRFID(){
   
-  for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
-    // Look for new cards
-    String uidText = "";
-//
-    if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
+for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+  String uidText = "";
 
-      dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
-      
-      for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
+    rfid_tag_present_prev[reader] = rfid_tag_present[reader];
+    _rfid_error_counter[reader] += 1;
+  if(_rfid_error_counter[reader] > 2){
+    _tag_found[reader] = false;
+  }
+
+  // Detect Tag without looking for collisions
+  byte bufferATQA[2];
+  byte bufferSize = sizeof(bufferATQA);
+
+  // Reset baud rates
+  mfrc522[reader].PCD_WriteRegister(mfrc522[reader].TxModeReg, 0x00);
+  mfrc522[reader].PCD_WriteRegister(mfrc522[reader].RxModeReg, 0x00);
+  // Reset ModWidthReg
+  mfrc522[reader].PCD_WriteRegister(mfrc522[reader].ModWidthReg, 0x26);
+
+  MFRC522::StatusCode result = mfrc522[reader].PICC_RequestA(bufferATQA, &bufferSize);
+
+  if(result == mfrc522[reader].STATUS_OK){
+    if ( ! mfrc522[reader].PICC_ReadCardSerial()) {
+       //Since a PICC placed get Serial and continue   
+      return;
+    }
+    _rfid_error_counter[reader] = 0;
+    _tag_found[reader] = true;        
+  
+  // dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
+
+  for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
       // Serial.println();
       // Serial.println(uidText);
+  
+  }
+  
+  rfid_tag_present[reader] = _tag_found[reader];
+  
+  // rising edge
+  if (rfid_tag_present[reader] && !rfid_tag_present_prev[reader]){
 
-    
+    if (uidText == "90bd4a26" && reader == 0)
+    {
+      // Serial.println("Pin 13 Reader 0 Triggered.");
+      // WebSerial.println("Pin 13 Reader 0 Triggered.");
+      hex1 = true;
+    }
+
+    // TEMP Excluded by Wendy's Request (Bottom one)
+
+    // if(uidText == "c32f19a0" && reader==1){
+    //   Serial.println("Pin 25 Reader 2 Triggered.");
+    //   hex2 = true;
+    //   sendData();
+    // }
+
+    if (uidText == "901fd026" && reader == 1)
+    {
+      // Serial.println("Pin 26 Reader 1 Triggered.");
+      // WebSerial.println("Pin 26 Reader 1 Triggered.");
+      hex3 = true;
+    }
+
+    if (uidText == "932f92d" && reader == 2)
+    {
+      // Serial.println("Pin 27 Reader 2 Triggered.");
+      // WebSerial.println("Pin 27 Reader 2 Triggered.");
+      hex4 = true;
+    }
+
+    if (uidText == "31cc8b" && reader == 3)
+    {
+      // Serial.println("Pin 32 Reader 5 Triggered.");
+      // WebSerial.println("Pin 32 Reader 5 Triggered.");
+      hex5 = true;
+    }
+
+    if (uidText == "919a1f1d" && reader == 4)
+    {
+      // Serial.println("Pin 33 Reader 5 Triggered.");
+      // WebSerial.println("Pin 33 Reader 5 Triggered.");
+
+      hex6 = true;
+    }
+  }
+  
+  // falling edge
+  if (!rfid_tag_present[reader] && rfid_tag_present_prev[reader]){
+    // Serial.println("Tag gone");
+
+    if (reader == 0)
+    {
+      hex1 = false;
+    }
+
+    // if(reader==1){
+    //   // Serial.println("Pin 14 Reader 2 Triggered.");
+    //   hex2 = false;
+    // }
+
+    if (reader == 1)
+    {
+      hex3 = false;
+    }
+
+    if (reader == 2)
+    {
+
+      hex4 = false;
+    }
+
+    if (reader == 3)
+    {
+      hex5 = false;
+    }
+
+    if (reader == 4)
+    {
+
+      hex6 = false;
+    }
+  }
+
+} // For loop
+}
+
+void loop() {
 
 
-        if(uidText == "90bd4a26" && reader==0){
-        // Serial.println("Pin 13 Reader 0 Triggered.");
-        // WebSerial.println("Pin 13 Reader 0 Triggered.");
-        hex1 = true;
-      } 
 
-      //TEMP Excluded by Wendy's Request (Bottom one)
 
-      // if(uidText == "c32f19a0" && reader==1){
-      //   Serial.println("Pin 25 Reader 2 Triggered.");
-      //   hex2 = true;
-      //   sendData();
-      // } 
-
-        if(uidText == "901fd026" && reader==1){
-        // Serial.println("Pin 26 Reader 1 Triggered.");
-        // WebSerial.println("Pin 26 Reader 1 Triggered.");
-        hex3 = true;
-      }
-
-                  if(uidText == "932f92d" && reader==2){
-        // Serial.println("Pin 27 Reader 2 Triggered.");
-        // WebSerial.println("Pin 27 Reader 2 Triggered.");
-        hex4 = true;
-      } 
-
-                  if(uidText == "31cc8b" && reader==3){
-        // Serial.println("Pin 32 Reader 5 Triggered.");
-        // WebSerial.println("Pin 32 Reader 5 Triggered.");
-        hex5 = true;
-      } 
-
-                  if(uidText == "919a1f1d" && reader == 4){
-        // Serial.println("Pin 33 Reader 5 Triggered.");
-        // WebSerial.println("Pin 33 Reader 5 Triggered.");
-        
-        hex6 = true;
-      } 
-
- 
-      
-      //  Serial.print(F("PICC type: "));
+  handleRFID();
 
   
-    } //if (mfrc522[reader].PICC_IsNewC
-
-    //Check if the card at this point is STILL there.
-    if(mfrc522[reader].PICC_IsCardPresent()) Serial.println("Card STILL THERE");
-  
-         MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
-      //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
-
-      // Halt PICC
-      mfrc522[reader].PICC_HaltA();
-      // Stop encryption on PCD
-      mfrc522[reader].PCD_StopCrypto1();
-  } //for(uint8_t reader
-
-/* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */
-
-  delay(25); // This delay might cause in problems when multiple readers are used...
-
-
   asynctimer.handle();
 }
+
