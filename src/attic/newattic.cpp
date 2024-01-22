@@ -124,7 +124,8 @@ void getTouch(){
 
   if(filteredValue > 3800){
     Serial.printf("ABOVE THRESHOLD\n\n\n\n");
-    readingcounter +=80; // trigger in 2 ticks.
+    //baseline was 80
+    readingcounter +=30; // trigger in 4 ticks.
   }
 
 if (readingcounter >= 100) {
