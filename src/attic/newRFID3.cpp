@@ -3,7 +3,7 @@
                           Tygervallei Escape Room Project
 --------------------------------------------------------------------------                          
   Author: Adriaan van Wijk
-  Date: 16 October 2023
+  Date: 22 January 2023
 
   This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
@@ -239,10 +239,8 @@ bool _tag_found[3] = {false,false,false};
 
 // bool tag_status[3] = {0,0,0};
 
-void loop() {
-
-
-
+void handleRFID(){
+  
 for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
   String uidText = "";
 
@@ -326,8 +324,14 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
   }
 
 } // For loop
+}
+
+void loop() {
 
 
+
+
+  handleRFID();
   asynctimer.handle();
 }
 
