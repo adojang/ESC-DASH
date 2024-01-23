@@ -342,6 +342,8 @@ if(hex3) pawncount++;
 if(hex4) pawncount++;
 }
 
+unsigned long ttime = millis();
+
 void loop()
 {
 
@@ -354,14 +356,16 @@ void loop()
 
 handleRFID();
 
-if (pawncount == 4 && relayarmed)
+if (pawncount == 4 && relayarmed == true)
 {
   trigger();
   relayarmed = false;
   Serial.println("TRIGGER");
+  ttime = millis();
+
 }
 
-if (pawncount == 0 && relayarmed == false){
+if (pawncount == 0 && relayarmed == false && (millis() - ttime > 1000)){
   relayarmed = true;
   Serial.println("RELAY ARMED");
 }

@@ -392,7 +392,7 @@ void loop() {
 
   }
 
-if (clockcount >= 3 && (oneShot == false)){
+if (clockcount >= 2 && (oneShot == false)){
   WebSerial.println("TRIGGER!");
   clockcount = 0;
   triggersystem();
