@@ -47,7 +47,7 @@
 // SDA - See the pins below:
 
 #define RST_PIN 5
-#define SS_1_PIN 13
+#define SS_1_PIN 12
 #define SS_2_PIN 25
 #define SS_3_PIN 26
 #define SS_4_PIN 27

@@ -146,7 +146,7 @@ Card clockjoystick(&dashboard, JOYSTICK_CARD, "Clock Control", "lockY");
 Card lockdoor(&dashboard, BUTTON_CARD, "Lock RFID Door"); // momentary
 
 Card lockdoor_status(&dashboard, STATUS_CARD, "Door Status", "success");
-Card DOORTOUCH(&dashboard, STATUS_CARD, "Human Chain", "idle");
+Card DOORTOUCH(&dashboard, STATUS_CARD, "HUMANCHAIN", "idle");
 Card trigger_clock(&dashboard, BUTTON_CARD, "Manually Trigger Clock (UP)"); // momentary
 Card reset_clock(&dashboard, BUTTON_CARD, "Reset Clock Position (DOWN)");   // momentary
 
@@ -218,9 +218,9 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
   {
     Serial.println("AtticTouch");
     if (rData.data == 1)
-      DOORTOUCH.update("Touching - Complete", "success");
+      DOORTOUCH.update("Touching", "success");
     if (rData.data != 1)
-      DOORTOUCH.update("Not Touching - Incomplete", "danger");
+      DOORTOUCH.update("Not Touching", "danger");
 
     dashboard.sendUpdates();
   }
