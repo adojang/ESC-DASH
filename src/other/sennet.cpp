@@ -47,7 +47,7 @@
 // SDA - See the pins below:
 
 #define RST_PIN 5
-#define SS_1_PIN 12
+#define SS_1_PIN 13
 #define SS_2_PIN 25
 #define SS_3_PIN 26
 #define SS_4_PIN 27
@@ -368,6 +368,7 @@ if (pawncount == 4 && relayarmed == true)
 if (pawncount == 0 && relayarmed == false && (millis() - ttime > 1000)){
   relayarmed = true;
   Serial.println("RELAY ARMED");
+  ESP.restart();
 }
 
   asynctimer.handle();
