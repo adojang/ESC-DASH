@@ -3,7 +3,7 @@
                           Tygervallei Escape Room Project
 --------------------------------------------------------------------------
   Author: Adriaan van Wijk
-  Date: 22 January 2024
+  Date: 23 January 2024
 
   This code is part of a multi-node project involving Escape Rooms in Tygervallei,
   South Africa.
@@ -29,7 +29,6 @@
 /* RFID */
 #include <SPI.h>
 #include <MFRC522.h>
-
 
 #define NAME "sennet"
 #define setMACAddress m_tomb_sennet
@@ -105,6 +104,8 @@ bool hex3 = false;
 bool hex4 = false;
 
 int pawncount = 0;
+
+bool relayarmed = true;
 
 /* Functions */
 void trigger()
@@ -227,6 +228,11 @@ void dump_byte_array(byte *buffer, byte bufferSize) {
   }
 }
 
+
+  ///////////////////////////////////////
+  /////////// RFID Core Code ///////////
+  ///////////////////////////////////////
+
 bool rfid_tag_present_prev[4] = {false,false,false,false};
 bool rfid_tag_present[4] = {false,false,false,false};
 int _rfid_error_counter[4] ={0,0,0,0};
@@ -281,30 +287,23 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
   if (rfid_tag_present[reader] && !rfid_tag_present_prev[reader])
   {
 
-    if (uidText == "90bd4a26" && reader == 0)
+    if (reader == 0)
     {
-      // Serial.println("Pin 13 Reader 0 Triggered.");
-      // WebSerial.println("Pin 13 Reader 0 Triggered.");
       hex1 = true;
     }
 
-    if (uidText == "901fd026" && reader == 1)
+    if (reader == 1)
     {
-      // Serial.println("Pin 25 Reader 2 Triggered.");
       hex2 = true;
     }
 
     // THIS RFID READER IS NOT USED.
-    if (uidText == "932f92d" && reader == 2)
+    if (reader == 2)
     {
-      // Serial.println("Pin 26 Reader 1 Triggered.");
-      // WebSerial.println("Pin 26 Reader 1 Triggered.");
       hex3 = true;
     }
-    if (uidText == "31cc8b" && reader == 3)
+    if (reader == 3)
     {
-      // Serial.println("Pin 27 Reader 2 Triggered.");
-      // WebSerial.println("Pin 27 Reader 2 Triggered.");
       hex4 = true;
     }
   }
@@ -314,18 +313,15 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     // Serial.println("Tag gone");
    
          if( reader==0){
-        // Serial.println("Pin 13 Reader 1 Triggered.");
         hex1 = false;
       } 
 
       if(reader==1){
-        // Serial.println("Pin 14 Reader 2 Triggered.");
         hex2 = false;
       }
 
       if (reader == 2)
       {
-        // Serial.println("Pin 27 Reader 3 Triggered.");
         hex3 = false;
       }
 
@@ -336,25 +332,39 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
   }
 
 } // For loop
-}
 
+//Count the number of hexes
+
+pawncount = 0;
+if (hex1) pawncount++;
+if(hex2) pawncount++;
+if(hex3) pawncount++;
+if(hex4) pawncount++;
+}
 
 void loop()
 {
 
   if (millis() - timer1sec > 1000)
   {
-
-    // Serial.printf("Seconds Online: %d\n", millis() / 1000);
-    // Serial.printf("Pawns Present: %d\n", total);
+    Serial.printf("Pawns Present: %d\n", pawncount);
+    WebSerial.printf("Pawns Present: %d\n", pawncount);
     timer1sec = millis();
   }
 
-  ///////////////////////////////////////
-  /////////// RFID Core Code ///////////
-  ///////////////////////////////////////
-
 handleRFID();
+
+if (pawncount == 4 && relayarmed)
+{
+  trigger();
+  relayarmed = false;
+  Serial.println("TRIGGER");
+}
+
+if (pawncount == 0 && relayarmed == false){
+  relayarmed = true;
+  Serial.println("RELAY ARMED");
+}
 
   asynctimer.handle();
 }
