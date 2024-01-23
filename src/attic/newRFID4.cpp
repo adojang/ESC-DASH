@@ -93,7 +93,7 @@ byte ssPins[] = {SS_1_PIN, SS_2_PIN, SS_3_PIN, SS_4_PIN, SS_5_PIN, SS_6_PIN};
 MFRC522 mfrc522[NR_OF_READERS];   // Create MFRC522 instance.
 
 bool hex1 = false;
-bool hex2 = false; // excluded for now. This is the blank block at the bottom.
+bool hex2 = false;
 bool hex3 = false;
 bool hex4 = false;
 bool hex5 = false; 
@@ -386,86 +386,6 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
 
 
 void loop() {
-
-  
-//   for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
-//     // Look for new cards
-//     String uidText = "";
-// //
-//     if (mfrc522[reader].PICC_IsNewCardPresent() && mfrc522[reader].PICC_ReadCardSerial()) {
-
-//       dump_byte_array(mfrc522[reader].uid.uidByte, mfrc522[reader].uid.size);
-      
-//       for (byte i = 0; i < mfrc522[reader].uid.size; i++) {
-//         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
-//       }
-//       // Serial.println();
-//       // Serial.println(uidText);
-
-    
-
-
-//         if(uidText == "90bd4a26" && reader==0){
-//         // Serial.println("Pin 13 Reader 0 Triggered.");
-//         // WebSerial.println("Pin 13 Reader 0 Triggered.");
-//         hex1 = true;
-//       } 
-
-//       //TEMP Excluded by Wendy's Request (Bottom one)
-
-//       // if(uidText == "c32f19a0" && reader==5){
-//       //   Serial.println("Pin 25 Reader 2 Triggered.");
-//       //   hex2 = true;
-//       //   sendData();
-//       // } 
-
-//         if(uidText == "901fd026" && reader==1){
-//         // Serial.println("Pin 26 Reader 1 Triggered.");
-//         // WebSerial.println("Pin 26 Reader 1 Triggered.");
-//         hex3 = true;
-//       }
-
-//                   if(uidText == "932f92d" && reader==2){
-//         // Serial.println("Pin 27 Reader 2 Triggered.");
-//         // WebSerial.println("Pin 27 Reader 2 Triggered.");
-//         hex4 = true;
-//       } 
-
-//                   if(uidText == "31cc8b" && reader==3){
-//         // Serial.println("Pin 32 Reader 5 Triggered.");
-//         // WebSerial.println("Pin 32 Reader 5 Triggered.");
-//         hex5 = true;
-//       } 
-
-//                   if(uidText == "919a1f1d" && reader == 4){
-//         // Serial.println("Pin 33 Reader 5 Triggered.");
-//         // WebSerial.println("Pin 33 Reader 5 Triggered.");
-        
-//         hex6 = true;
-//       } 
-
- 
-      
-//       //  Serial.print(F("PICC type: "));
-
-  
-//     } //if (mfrc522[reader].PICC_IsNewC
-
-//     //Check if the card at this point is STILL there.
-//     if(mfrc522[reader].PICC_IsCardPresent()) Serial.println("Card STILL THERE");
-  
-//          MFRC522::PICC_Type piccType = mfrc522[reader].PICC_GetType(mfrc522[reader].uid.sak);
-//       //  Serial.println(mfrc522[reader].PICC_GetTypeName(piccType));
-
-//       // Halt PICC
-//       mfrc522[reader].PICC_HaltA();
-//       // Stop encryption on PCD
-//       mfrc522[reader].PCD_StopCrypto1();
-//   } //for(uint8_t reader
-
-// /* WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING */
-
-//   delay(25); // This delay might cause in problems when multiple readers are used...
 
   handleRFID();
 

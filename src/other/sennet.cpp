@@ -26,13 +26,15 @@
 
 #include <EscCore.h>
 #include <esp_task_wdt.h> // watchdog for doorlock mag recovery.
+/* RFID */
+#include <SPI.h>
+#include <MFRC522.h>
+
 
 #define NAME "sennet"
 #define setMACAddress m_tomb_sennet
 #define WDT_TIMEOUT 10 // 10 seconds
-/* RFID */
-#include <SPI.h>
-#include <MFRC522.h>
+
 
 /* Configuration and Setup */
 
@@ -96,6 +98,13 @@ dataPacket rData;
 
 byte ssPins[] = {SS_1_PIN, SS_2_PIN, SS_3_PIN, SS_4_PIN};
 MFRC522 mfrc522[NR_OF_READERS]; // Create MFRC522 instance.
+
+bool hex1 = false;
+bool hex2 = false;
+bool hex3 = false;
+bool hex4 = false;
+
+int pawncount = 0;
 
 /* Functions */
 void trigger()
@@ -181,9 +190,13 @@ void setup()
   Serial.println("Configuring WDT...");
   esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
   esp_task_wdt_add(NULL);               // add current thread to WDT watch
+  
+  pinMode(SS_1_PIN, PULLUP);
+  pinMode(SS_2_PIN, PULLUP);
+  pinMode(SS_3_PIN, PULLUP);
+  pinMode(SS_4_PIN, PULLUP);
 
-  SPI.begin(); // Init SPI bus
-
+  SPI.begin();        // Init SPI bus
 
   for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
     mfrc522[reader].PCD_Init(ssPins[reader], RST_PIN); // Init each MFRC522 card
@@ -193,25 +206,17 @@ void setup()
     Serial.print(F("Reader "));
     Serial.print(reader);
     Serial.print(F(": "));
-    
-    if(mfrc522[reader].PCD_DumpVersionToSerial() == 1){
+        if(mfrc522[reader].PCD_DumpVersionToSerial() == 1){
       Serial.println("ERROR, RESTARTING ESP TO HOPEFULLY CLEAR UP.");
       ESP.restart();
     };
   }
-
-
-  sData.origin = tomb_tangrum;
-  sData.sensor = tomb_tangrum;
   Serial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
+  WebSerial.println("Tap an RFID/NFC tag on the RFID-RC522 reader");
+
+  asynctimer.setInterval([]() {statusUpdate();},  1000);
 }
 
-unsigned long ttimer = millis();
-int total = 0;
-bool oneshotEnable = true;
-int oneShot = 0;
-
-unsigned long oneshottimer = millis();
 
 unsigned long timer1sec = millis();
 
@@ -227,23 +232,9 @@ bool rfid_tag_present[4] = {false,false,false,false};
 int _rfid_error_counter[4] ={0,0,0,0};
 bool _tag_found[4] = {false,false,false,false};
 
-void loop()
-{
 
-  if (millis() - timer1sec > 1000)
-  {
-
-    WebSerial.printf("Seconds Online: %d\n", millis() / 1000);
-    WebSerial.printf("Pawns Present: %d\n", total);
-    timer1sec = millis();
-  }
-
-  ///////////////////////////////////////
-  /////////// RFID Core Code ///////////
-  ///////////////////////////////////////
-
-    total = 0; // Reset count.
-
+void handleRFID(){
+  
 for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
   String uidText = "";
 
@@ -279,6 +270,7 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
         uidText += String(mfrc522[reader].uid.uidByte[i], HEX);
       }
       // Serial.println();
+      // Serial.printf("Reader: %d\n", reader);
       // Serial.println(uidText);
   
   }
@@ -286,30 +278,83 @@ for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
   rfid_tag_present[reader] = _tag_found[reader];
   
   // rising edge
-  if (rfid_tag_present[reader] && !rfid_tag_present_prev[reader]){
-    // Serial.println("Tag found");
-   total +=1;
+  if (rfid_tag_present[reader] && !rfid_tag_present_prev[reader])
+  {
+
+    if (uidText == "90bd4a26" && reader == 0)
+    {
+      // Serial.println("Pin 13 Reader 0 Triggered.");
+      // WebSerial.println("Pin 13 Reader 0 Triggered.");
+      hex1 = true;
+    }
+
+    if (uidText == "901fd026" && reader == 1)
+    {
+      // Serial.println("Pin 25 Reader 2 Triggered.");
+      hex2 = true;
+    }
+
+    // THIS RFID READER IS NOT USED.
+    if (uidText == "932f92d" && reader == 2)
+    {
+      // Serial.println("Pin 26 Reader 1 Triggered.");
+      // WebSerial.println("Pin 26 Reader 1 Triggered.");
+      hex3 = true;
+    }
+    if (uidText == "31cc8b" && reader == 3)
+    {
+      // Serial.println("Pin 27 Reader 2 Triggered.");
+      // WebSerial.println("Pin 27 Reader 2 Triggered.");
+      hex4 = true;
+    }
   }
-  
+
   // falling edge
   if (!rfid_tag_present[reader] && rfid_tag_present_prev[reader]){
-    total += 0;
+    // Serial.println("Tag gone");
+   
+         if( reader==0){
+        // Serial.println("Pin 13 Reader 1 Triggered.");
+        hex1 = false;
+      } 
+
+      if(reader==1){
+        // Serial.println("Pin 14 Reader 2 Triggered.");
+        hex2 = false;
+      }
+
+      if (reader == 2)
+      {
+        // Serial.println("Pin 27 Reader 3 Triggered.");
+        hex3 = false;
+      }
+
+      if (reader == 3)
+      {
+        hex4 = false;
+      }
   }
 
 } // For loop
+}
 
-//At the end of each loop, reset total to 0;
-    if ((total == 4) && oneShot == 0)
-    {
-      Serial.printf("Puzzle Complete! 4/4\n");
-      trigger();
-      oneShot = 1;
-    }
-      //if total == 3 or less
-      if ((total < 4) && oneShot == 1)
-    {
-      oneShot = 0;
-    }
+
+void loop()
+{
+
+  if (millis() - timer1sec > 1000)
+  {
+
+    // Serial.printf("Seconds Online: %d\n", millis() / 1000);
+    // Serial.printf("Pawns Present: %d\n", total);
+    timer1sec = millis();
+  }
+
+  ///////////////////////////////////////
+  /////////// RFID Core Code ///////////
+  ///////////////////////////////////////
+
+handleRFID();
 
   asynctimer.handle();
 }
