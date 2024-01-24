@@ -128,6 +128,11 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
 {
   memcpy(&rData, incomingData, sizeof(rData));
 
+  if(rData.origin == masterserver && rData.sensor == tomb_sennet && rData.data == 66){
+    WebSerial.println("RESTART SENNET");
+    asynctimer.setTimeout([]() {esp_restart();},  2000); // restart ESP in 3 seconds, enough time to publish to webserial
+  }
+
   if (rData.origin == masterserver && rData.sensor == tomb_sennet && rData.data == 1)
   {
     trigger();
@@ -162,6 +167,16 @@ void statusUpdate()
   sData.sensor = status_alive;
   esp_err_t result = esp_now_send(m_masterserver, (uint8_t *)&sData, sizeof(sData));
   esp_task_wdt_reset(); // restarts out after 10 seconds of not sending.
+}
+
+void sendData()
+{
+  sData.origin = tomb_sennet;
+  sData.sensor = tomb_sennet;
+  sData.data = pawncount;
+  esp_err_t result = esp_now_send(m_masterserver, (uint8_t *) &sData, sizeof(sData));
+  if (result == ESP_OK) { Serial.println("Sent with success");}
+  else {Serial.println("Error sending the data");}
 }
 
 void setup()
@@ -352,6 +367,7 @@ void loop()
     Serial.printf("Pawns Present: %d\n", pawncount);
     WebSerial.printf("Pawns Present: %d\n", pawncount);
     timer1sec = millis();
+    sendData();
   }
 
 handleRFID();
@@ -362,7 +378,6 @@ if (pawncount == 4 && relayarmed == true)
   relayarmed = false;
   Serial.println("TRIGGER");
   ttime = millis();
-
 }
 
 if (pawncount == 0 && relayarmed == false && (millis() - ttime > 1000)){

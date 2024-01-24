@@ -163,6 +163,8 @@ Card maindoor_override(&dashboard, BUTTON_CARD, "Open Main Door");   // momentar
 Card chalice_card(&dashboard, BUTTON_CARD, "Open Chalice Door");     // momentary
 Card tangrumtomb_card(&dashboard, BUTTON_CARD, "Open Tomb");         // momentary
 Card sennet_card(&dashboard, BUTTON_CARD, "Override Sennet Puzzle"); // momentary
+Card restart_sennet(&dashboard, BUTTON_CARD, "Restart Sennet"); // momentary
+Card sennetPawns(&dashboard, STATUS_CARD, "Sennet Pawns", "idle");
 
 /* All Aboard (Train) */
 Card trainroomdoor_card(&dashboard, BUTTON_CARD, "Open Train Room Door");               // momentary
@@ -300,6 +302,11 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len)
     }
   }
 
+  if(rData.origin == tomb_sennet & rData.sensor == tomb_sennet){
+
+    if (rData.data == 4) {sennetPawns.update(rData.data, "success");}
+    else {sennetPawns.update(rData.data, "warning");}
+  }
   /* Status Updates */
 
   // This checks every 5 seconds to see if we've recieved a message from a controller.
@@ -424,6 +431,8 @@ void configDash()
 
   /* Tomb */
   sennet_card.setTab(&tomb);
+  restart_sennet.setTab(&tomb);
+  sennetPawns.setTab(&tomb);
   chalice_card.setTab(&tomb);
   maindoor_override.setTab(&tomb);
   tangrumtomb_card.setTab(&tomb);
@@ -732,6 +741,20 @@ dashboard.sendUpdates(); });
                                sData.data = 0;
                              });
 
+                               restart_sennet.attachCallback([](int value)
+                             {
+                               buttonTimeout(&restart_sennet);
+                               WebSerial.printf("Sennet Restart Triggered\n");
+                               sData.sensor = tomb_sennet;
+                               sData.data = 66;
+                               esp_err_t result = esp_now_send(m_tomb_sennet, (uint8_t *)&sData, sizeof(sData));
+                               if (result != ESP_OK)
+                               {
+                                 WebSerial.println("Error. Probably not Registerd.");
+                               }
+                               sData.data = 0;
+                             });
+
   /* 0xB1 - chalicessensor */
   chalice_card.attachCallback([](int value)
                               {
@@ -832,6 +855,7 @@ void setup()
   Core.startup(setMACAddress, NAME, server);
   startespnow();
   registermac(m_clock);
+  registermac(m_tomb_sennet);
   registermac(m_trainmaster);
   registermac(m_atticmaster);
   registermac(m_tombmaster);
